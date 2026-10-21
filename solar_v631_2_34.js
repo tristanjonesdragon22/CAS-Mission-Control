@@ -1,0 +1,19 @@
+(function(root){'use strict';
+const p=root.casPlanetaryV631233;if(!p)throw Error('V631.2.33 planetary engine required');
+const names=['Mercury','Venus','Earth','Mars','Jupiter','Saturn'];
+const TWO=Math.PI*2,mu=p.G*p.bodies.Sun.mass;
+function finite(n,label){if(!Number.isFinite(n))throw Error(label+' must be finite');return n}
+function planetPosition(name,days){finite(days,'Time');let b=p.bodies[name];if(!b||!b.orbitAU)throw Error('Unknown orbiting planet');let r=b.orbitAU*p.AU,omega=Math.sqrt(mu/(r*r*r)),theta=omega*days*p.DAY;return {name,xAU:b.orbitAU*Math.cos(theta),yAU:b.orbitAU*Math.sin(theta),angleRadians:((theta%TWO)+TWO)%TWO,periodDays:TWO/omega/p.DAY,model:'Idealized circular coplanar orbit; all planets aligned at day 0'}}
+function system(days){return names.map(n=>planetPosition(n,days))}
+function transferPath(from,to,samples=120){if(!Number.isInteger(samples)||samples<8||samples>2000)throw Error('Samples must be integer 8–2000');let tr=p.planetaryTransfer(from,to),r1=p.bodies[from].orbitAU,r2=p.bodies[to].orbitAU,a=(r1+r2)/2,e=Math.abs(r2-r1)/(r1+r2),out=[];for(let i=0;i<=samples;i++){let theta=Math.PI*i/samples;let r=a*(1-e*e)/(1+(r1<r2?e:-e)*Math.cos(theta));out.push({xAU:r*Math.cos(theta),yAU:r*Math.sin(theta)})}return {transfer:tr,path:out,note:'Illustrative Sun-centered Hohmann transfer arc; not an ephemeris or mission trajectory'}}
+const api={names,planetPosition,system,transferPath};root.casSolarV631234=api;if(typeof module!=='undefined')module.exports=api;
+if(typeof document==='undefined')return;
+const $=id=>document.getElementById(id),canvas=$('casSolarCanvas'),output=$('casSolarStatus');if(!canvas||!output)return;const ctx=canvas.getContext('2d');let days=0,playing=false,last=0,transfer=null;
+function draw(){let w=canvas.width,h=canvas.height,cx=w/2,cy=h/2,scale=Math.min(w,h)*.43/10;ctx.clearRect(0,0,w,h);ctx.fillStyle='#071120';ctx.fillRect(0,0,w,h);ctx.strokeStyle='#33485f';ctx.lineWidth=1;names.forEach(n=>{let r=p.bodies[n].orbitAU*scale;ctx.beginPath();ctx.arc(cx,cy,r,0,TWO);ctx.stroke()});if(transfer){ctx.beginPath();ctx.strokeStyle='#71e0b6';ctx.lineWidth=2;transfer.path.forEach((q,i)=>{let x=cx+q.xAU*scale,y=cy-q.yAU*scale;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()}
+ctx.fillStyle='#ffcc65';ctx.beginPath();ctx.arc(cx,cy,5,0,TWO);ctx.fill();const colors={Mercury:'#b6b9c2',Venus:'#e4bd8b',Earth:'#5bafff',Mars:'#f17b67',Jupiter:'#d7ae89',Saturn:'#e6d3a1'};system(days).forEach(q=>{let x=cx+q.xAU*scale,y=cy-q.yAU*scale;ctx.fillStyle=colors[q.name];ctx.beginPath();ctx.arc(x,y,q.name==='Jupiter'?5:3,0,TWO);ctx.fill();ctx.font='12px sans-serif';ctx.fillText(q.name,x+7,y-7)});output.textContent='Simulation day: '+days.toFixed(1)+' | Approximate circular, coplanar orbits; not real-date planet positions.'}
+function tick(t){if(playing){if(last)days+=(t-last)/1000*Number($('casSolarSpeed').value);last=t;draw();requestAnimationFrame(tick)}else last=0}
+$('casSolarPlay').addEventListener('click',()=>{playing=!playing;$('casSolarPlay').textContent=playing?'Pause':'Play';last=0;if(playing)requestAnimationFrame(tick)});
+$('casSolarReset').addEventListener('click',()=>{days=0;transfer=null;draw()});
+$('casSolarDay').addEventListener('change',()=>{let v=Number($('casSolarDay').value);if(Number.isFinite(v)&&Math.abs(v)<1e7){days=v;draw()}else output.textContent='Enter a finite day within ±10 million'});
+$('casSolarTransfer').addEventListener('click',()=>{try{transfer=transferPath($('casSolarFrom').value,$('casSolarTo').value);draw();$('casSolarTransferInfo').textContent=`Idealized transfer: ${transfer.transfer.transferTimeDays.toFixed(2)} days; heliocentric Δv ${ (transfer.transfer.totalDeltaVMS/1000).toFixed(3)} km/s. Diagram is schematic; planetary positions are not synchronized to launch.`}catch(e){$('casSolarTransferInfo').textContent='Error: '+e.message}});draw();
+})(typeof globalThis!=='undefined'?globalThis:this);

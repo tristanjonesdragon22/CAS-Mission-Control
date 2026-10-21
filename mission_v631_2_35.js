@@ -1,0 +1,21 @@
+/* CAS V631.2.35: idealized patched-conic interplanetary mission planner; offline, no eval. */
+(function(root){'use strict';
+const G=6.67430e-11,AU=149597870700,DAY=86400,g0=9.80665;
+const planets={Mercury:{mass:3.3011e23,radius:2439700,a:.387098},Venus:{mass:4.8675e24,radius:6051800,a:.723332},Earth:{mass:5.9722e24,radius:6371000,a:1},Mars:{mass:6.4171e23,radius:3389500,a:1.523679},Jupiter:{mass:1.89813e27,radius:69911000,a:5.2044},Saturn:{mass:5.6834e26,radius:58232000,a:9.5826}};
+const muSun=G*1.98847e30;
+function valid(v,name,allowZero=false){if(!Number.isFinite(v)||(allowZero?v<0:v<=0))throw Error(name+' must be '+(allowZero?'nonnegative':'positive')+' and finite');return v}
+function mission(from,to,departureAltitudeM=300000,arrivalAltitudeM=300000){const p=planets[from],q=planets[to];if(!p||!q||from===to)throw Error('Choose two different supported planets');valid(departureAltitudeM,'Departure altitude',true);valid(arrivalAltitudeM,'Arrival altitude',true);
+const r1=p.a*AU,r2=q.a*AU,a=(r1+r2)/2,t=Math.PI*Math.sqrt(a**3/muSun),v1=Math.sqrt(muSun/r1),v2=Math.sqrt(muSun/r2),vt1=Math.sqrt(muSun*(2/r1-1/a)),vt2=Math.sqrt(muSun*(2/r2-1/a));
+const vinf1=Math.abs(vt1-v1),vinf2=Math.abs(v2-vt2),rp1=p.radius+departureAltitudeM,rp2=q.radius+arrivalAltitudeM,mu1=G*p.mass,mu2=G*q.mass;
+const departureBurn=Math.sqrt(vinf1**2+2*mu1/rp1)-Math.sqrt(mu1/rp1);
+const arrivalCaptureBurn=Math.sqrt(vinf2**2+2*mu2/rp2)-Math.sqrt(mu2/rp2);
+const phase=(Math.PI-Math.sqrt(muSun/r2**3)*t)%(2*Math.PI);const phaseDegrees=((phase*180/Math.PI)%360+360)%360;
+const synodic=2*Math.PI/Math.abs(Math.sqrt(muSun/r1**3)-Math.sqrt(muSun/r2**3));
+return {from,to,transferDays:t/DAY,heliocentricDepartureDeltaVMS:vinf1,heliocentricArrivalDeltaVMS:vinf2,departureBurnMS:departureBurn,arrivalCaptureBurnMS:arrivalCaptureBurn,totalIdealBurnMS:departureBurn+arrivalCaptureBurn,phaseAngleDegrees:phaseDegrees,synodicPeriodDays:synodic/DAY,departureAltitudeM,arrivalAltitudeM,assumptions:'Circular coplanar orbits; instantaneous burns; two-body patched conics; no atmosphere, inclination, gravity assists, launch site, ephemerides or finite thrust. Phase angle is target ahead of departure planet at departure, prograde.'};}
+function propellant(deltaVMS,ispSeconds,dryMassKG){valid(deltaVMS,'Delta-v',true);valid(ispSeconds,'Specific impulse');valid(dryMassKG,'Dry mass');let ratio=Math.exp(deltaVMS/(ispSeconds*g0));if(!Number.isFinite(ratio))throw Error('Required mass ratio overflows');return {massRatio:ratio,initialMassKG:dryMassKG*ratio,propellantMassKG:dryMassKG*(ratio-1),propellantFraction:1-1/ratio}}
+const api={mission,propellant,planets};root.casMissionV631235=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
+if(typeof document==='undefined')return;
+function el(id){return document.getElementById(id)}
+const btn=el('casMissionRun');if(!btn)return;
+btn.addEventListener('click',()=>{const out=el('casMissionResult');try{let from=el('casMissionFrom').value,to=el('casMissionTo').value,dep=Number(el('casMissionDep').value)*1000,arr=Number(el('casMissionArr').value)*1000,isp=Number(el('casMissionIsp').value),dry=Number(el('casMissionDry').value);if(['casMissionDep','casMissionArr','casMissionIsp','casMissionDry'].some(id=>el(id).value.trim()===''))throw Error('Enter all numeric inputs');const m=mission(from,to,dep,arr),fuel=propellant(m.totalIdealBurnMS,isp,dry),f=(v,d=2)=>v.toLocaleString(undefined,{maximumFractionDigits:d});out.textContent=`${from} → ${to}\nTransfer time: ${f(m.transferDays)} days\nDeparture burn from circular parking orbit: ${f(m.departureBurnMS)} m/s\nArrival circular capture burn: ${f(m.arrivalCaptureBurnMS)} m/s\nTotal ideal burns: ${f(m.totalIdealBurnMS)} m/s\nHeliocentric excess speeds: ${f(m.heliocentricDepartureDeltaVMS)} / ${f(m.heliocentricArrivalDeltaVMS)} m/s\nRequired phase angle: ${f(m.phaseAngleDegrees)}°\nSynodic repeat interval: ${f(m.synodicPeriodDays)} days\nRocket mass ratio: ${f(fuel.massRatio,3)}\nEstimated propellant: ${f(fuel.propellantMassKG)} kg\nInitial spacecraft mass: ${f(fuel.initialMassKG)} kg\n\nMODEL LIMITS: ${m.assumptions}\nThis is not a dated launch-window predictor or operational flight plan.`;}catch(e){out.textContent='Input error: '+e.message}});
+})(typeof globalThis!=='undefined'?globalThis:this);
