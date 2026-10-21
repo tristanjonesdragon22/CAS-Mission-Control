@@ -1,0 +1,330 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0d172b"><title>CAS V631.2.20 Verified Offline Workspace</title><style>body{margin:0;background:#0b1324;color:#eef4ff;font:16px system-ui}main{max-width:860px;margin:auto;padding:20px}h1{font-size:27px}h2{font-size:20px}p,small{color:#b7c7dc}section{background:#17243a;border:1px solid #354761;border-radius:16px;padding:18px;margin:16px 0}textarea,input,select{box-sizing:border-box;background:#0e1a2e;color:white;border:1px solid #6c809b;border-radius:9px;padding:12px;font:inherit}textarea{width:100%;min-height:100px;font:20px ui-monospace,monospace}button{background:#65dce7;color:#0a2331;border:0;border-radius:10px;padding:12px 15px;font-weight:700;margin:5px 5px 5px 0;font-size:15px}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #f7ca6c}#result{white-space:pre-wrap;overflow-wrap:anywhere;min-height:85px;background:#091528;border-radius:10px;padding:18px}label{display:block;margin:10px 0 5px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.grid input{width:100%}.status{font-weight:bold}a{color:#82eaf5}</style><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="CAS Workspace"><main><h1>CAS · Unified iPad Workspace</h1><p>V631.2.20 · One mathematical input · Reliable offline calculator and polynomial tools · Optional Windows Python engine</p><section id="install"><h2>Install on iPad Home Screen</h2><p>Open this page in Safari on your iPad, tap Share, then <b>Add to Home Screen</b>. Launch CAS from the new icon. Offline caching requires a secure HTTPS origin; a normal HTTP connection to a Windows LAN address will not enable it.</p><p><small>Advanced Python and original CAS analysis still need the Windows bridge running. If your iPad shows a connection warning, reconnect to the same Wi-Fi and check the bridge address.</small></p><button id="offlinecheck" type="button">Check offline readiness</button><p id="offlineStatus" role="status">Checking installation support…</p></section><section><h2>Math workspace</h2><label for="expr">Expression or equation</label><textarea id="expr" placeholder="x^2-5*x+6=0">x^2-5*x+6=0</textarea><div><button data-op="linear">Solve linear equation</button> <button data-op="evaluate">Evaluate polynomial</button> <button data-op="trig">Trigonometry</button> <button type="button" data-op="expression">Advanced expression</button> <button data-op="calculate">Calculate</button><button data-op="simplify">Simplify</button><button data-op="solve">Solve</button><button data-op="factor">Factor</button><button data-op="diff">Differentiate</button><button data-op="integrate">Integrate</button><button data-op="definite">Definite integral</button><button id="copyResult" type="button">Copy result</button><button data-op="legacy">Original CAS analysis</button></div><label for="engine">Processing engine</label><select id="engine"><option value="auto">Automatic (offline first)</option><option value="offline">Offline only</option><option value="python">Python backend</option></select><label for="variable">Variable</label><input id="variable" value="x" maxlength="30" size="5"><h2>Result</h2><div id="result" role="status" aria-live="polite">Ready.</div></section><section><h2>Recent calculations</h2><button id="clearHistory" type="button">Clear history</button><div id="history" aria-live="polite"></div></section><section><h2>Connection controls</h2><p class="status" id="connection">Not checked · Offline tools available</p><div class="grid"><div><label for="url">Windows bridge URL</label><input id="url" placeholder="http://192.168.1.20:8765"></div><div><label for="token">Access token (shown on Windows)</label><input id="token" type="password" autocomplete="off"></div></div><button id="check">Check connection</button><p><small>On your iPad, use the Windows computer's private-network IP address, not 127.0.0.1. Keep the bridge on trusted Wi-Fi only. A connection is required for original CAS analysis and general symbolic operations outside the offline polynomial subset.</small></p></section><section><h2>Compatibility</h2><p>Offline numeric expressions and supported polynomial operations run in the independent JavaScript engine. Offline polynomial factoring is limited to degree 2; solving quadratic equations includes complex roots. For definite integrals enter lower,upper:polynomial (example: 0,2:x^2). Polynomial integration is now available offline (including a constant of integration). More general symbolic integration requires the Python backend with SymPy installed. Original CAS analysis uses the selected original MathEngine, not the entire historical Windows platform.</p><p><a href="previous_interface_v631_1_9.html">Open previous interface (when served from Windows)</a> · <a href="previous_interface_v631_1_9.html">Previous interface file (offline)</a></p><small>This browser workspace is not a native iPadOS application. The Python backend runs on Windows, not the iPad.</small></section></main><section style="padding:12px;border:1px solid #64748b;border-radius:12px;margin:12px 0"><strong>V631.2.14 · Multivariable & matrices (offline)</strong><p>Systems: <code>1,1,5; 1,-1,1</code> → x=3, y=2. Determinant: <code>1,2; 3,4</code>. Multiply: <code>1,2;3,4 | 5,6;7,8</code>.</p><button type="button" data-op="system">Solve 2×2 / 3×3 system</button> <button type="button" data-op="determinant">Determinant</button> <button type="button" data-op="matmul">Multiply matrices</button></section><script>
+/* CAS V631.2.3 standalone offline fallback: no iframe or network required. */
+(function(root){'use strict';
+function polynomial(expression,v){let s=expression.replace(/\s+/g,'').replace(/\*\*/g,'^').replace(/−/g,'-');if(!s||s.includes('=')||s.length>500)throw Error('Enter a polynomial (maximum 500 characters)');if(!/^[a-zA-Z]$/.test(v))throw Error('Use a single-letter variable');if(s[0]!=='-'&&s[0]!=='+')s='+'+s;let matches=s.match(/[+-][^+-]+/g)||[],p=new Map();if(matches.join('')!==s)throw Error('Invalid polynomial syntax');for(let term of matches){let sign=term[0]==='-'?-1:1,body=term.slice(1),pow=0,coeff;if(body.includes(v)){let m=body.match(new RegExp('^(?:(\\d+(?:\\.\\d*)?|\\.\\d+)\\*?)?'+v+'(?:\\^(\\d+))?$'));if(!m)throw Error('Use terms like 3*x^2 - 2*x + 5');coeff=m[1]?Number(m[1]):1;pow=m[2]?Number(m[2]):1}else{if(!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(body))throw Error('Only polynomials are supported');coeff=Number(body)}if(pow>100)throw Error('Maximum degree 100');p.set(pow,(p.get(pow)||0)+sign*coeff)}return p}
+function format(p,v){let terms=[...p.entries()].filter(([n,c])=>Math.abs(c)>1e-12).sort((a,b)=>b[0]-a[0]);if(!terms.length)return '0';return terms.map(([n,c],i)=>{let a=Number(Math.abs(c).toPrecision(12)),body=(n===0?String(a):(a===1?'':a+'*')+v+(n===1?'':'^'+n));return (c<0?'-':i?'+':'')+body}).join(' ')}
+function numeric(s){let t=s.replace(/\s/g,'').replace(/π/g,'pi'),pos=0;if(t.length>500)throw Error('Expression too long');function eat(c){if(t.slice(pos,pos+c.length)===c){pos+=c.length;return true}return false}function primary(){if(eat('+'))return primary();if(eat('-'))return -primary();if(eat('(')){let x=add();if(!eat(')'))throw Error('Missing )');return x}let m=t.slice(pos).match(/^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/);if(m){pos+=m[0].length;return Number(m[0])}let id=t.slice(pos).match(/^[a-zA-Z]+/);if(id){pos+=id[0].length;let k=id[0].toLowerCase();if(k==='pi')return Math.PI;if(k==='e')return Math.E;let fn={sin:Math.sin,cos:Math.cos,tan:Math.tan,sqrt:Math.sqrt,abs:Math.abs,ln:Math.log,log:Math.log10,exp:Math.exp}[k];if(!fn||!eat('('))throw Error('Unsupported function '+k);let x=add();if(!eat(')'))throw Error('Missing )');return fn(x)}throw Error('Invalid number or symbol')}function power(){let a=primary();if(eat('^')||eat('**'))a=Math.pow(a,power());return a}function mult(){let a=power();while(true){if(eat('*'))a*=power();else if(eat('/'))a/=power();else break}return a}function add(){let a=mult();while(true){if(eat('+'))a+=mult();else if(eat('-'))a-=mult();else break}return a}let val=add();if(pos!==t.length)throw Error('Unexpected input at position '+pos);if(!Number.isFinite(val))throw Error('Result is not finite');return String(Number(val.toPrecision(14)))}
+function run(op,expression,variable){let v=variable||'x';if(op==='calculate')return numeric(expression);let p=polynomial(expression,v);if(op==='simplify')return format(p,v);if(op==='diff'){let d=new Map();for(let [n,c] of p)if(n)d.set(n-1,n*c);return format(d,v)}if(op==='integrate'){let d=new Map();for(let [n,c] of p)d.set(n+1,c/(n+1));return format(d,v)+' + C'}let a=p.get(2)||0,b=p.get(1)||0,c=p.get(0)||0;if([...p.keys()].some(k=>k>2))throw Error('Offline solve and factor support degree 2 or less');if(op==='solve'){if(a===0){if(b===0)return c===0?'All real numbers':'No solution';return v+' = '+(-c/b)}let disc=b*b-4*a*c;if(disc<0)return 'No real roots';return v+' = '+((-b+Math.sqrt(disc))/(2*a))+(disc?' or '+v+' = '+((-b-Math.sqrt(disc))/(2*a)):'')}if(op==='factor'){if(a===0)return format(p,v);let disc=b*b-4*a*c;if(disc<0)throw Error('No real linear factors');let r1=(-b+Math.sqrt(disc))/(2*a),r2=(-b-Math.sqrt(disc))/(2*a);return (a===1?'':a+'*')+'('+v+(r1<0?'+':'-')+Math.abs(r1)+')('+v+(r2<0?'+':'-')+Math.abs(r2)+')'}throw Error('Unknown operation')}
+root.offlineIndependent=run;if(typeof module!=='undefined')module.exports={offlineIndependent:run};})(typeof globalThis!=='undefined'?globalThis:this);
+
+</script><script>
+'use strict';
+const $=id=>document.getElementById(id), result=$('result');
+/* V631.2.7 offline extensions: equation normalization, complex quadratic roots, definite polynomial integrals. */
+(function(root){'use strict';
+const prior=root.offlineIndependent;
+function poly(s,v){s=s.replace(/\s+/g,'').replace(/\*\*/g,'^').replace(/−/g,'-');if(!s||s.length>500)throw Error('Polynomial is empty or too long');if(!/^[a-zA-Z]$/.test(v))throw Error('Use one-letter variable');if(!/^[+\-]/.test(s))s='+'+s;const terms=s.match(/[+\-][^+\-]+/g)||[];if(terms.join('')!==s)throw Error('Invalid polynomial');let m=new Map();for(const t of terms){let b=t.slice(1),sign=t[0]==='-'?-1:1,n=0,c; if(b.includes(v)){const q=b.match(new RegExp('^(?:(\\d+(?:\\.\\d*)?|\\.\\d+)\\*?)?'+v+'(?:\\^(\\d+))?$'));if(!q)throw Error('Unsupported polynomial term: '+b);c=q[1]?Number(q[1]):1;n=q[2]?Number(q[2]):1}else{if(!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(b))throw Error('Unsupported constant');c=Number(b)}if(n>100)throw Error('Degree limit 100');m.set(n,(m.get(n)||0)+sign*c)}return m}
+function norm(s,v){if(!s.includes('='))return s;const parts=s.split('=');if(parts.length!==2)throw Error('Use exactly one equals sign');const left=poly(parts[0],v),right=poly(parts[1],v);for(const [n,c] of right)left.set(n,(left.get(n)||0)-c);return [...left].filter(([,c])=>Math.abs(c)>1e-12).map(([n,c])=>(c>=0?'+':'')+c+(n?'*'+v+(n>1?'^'+n:''):'')).join('')||'0'}
+function fmt(n){return String(Number(n.toPrecision(12)))}
+function run(op,s,v){v=v||'x';if(op==='definite'){const match=s.match(/^\s*([^,:]+)\s*,\s*([^:]+)\s*:\s*(.+)$/);if(!match)throw Error('Use lower,upper:polynomial, e.g. 0,2:x^2');const a=Number(prior('calculate',match[1],v)),b=Number(prior('calculate',match[2],v));if(!Number.isFinite(a)||!Number.isFinite(b))throw Error('Invalid bounds');const m=poly(match[3],v);let total=0;for(const [n,c] of m)total+=c/(n+1)*(Math.pow(b,n+1)-Math.pow(a,n+1));if(!Number.isFinite(total))throw Error('Non-finite integral');return fmt(total)}
+if(op==='solve'&&s.includes('='))s=norm(s,v);
+if(op==='solve'){const m=poly(s,v);if([...m.keys()].some(n=>n>2))return prior(op,s,v);const a=m.get(2)||0,b=m.get(1)||0,c=m.get(0)||0;if(a!==0){const d=b*b-4*a*c;if(d<0){const real=fmt(-b/(2*a)),imag=fmt(Math.sqrt(-d)/Math.abs(2*a));return v+' = '+real+' + '+imag+'i or '+v+' = '+real+' - '+imag+'i'}}}
+return prior(op,s,v)}
+root.offlineIndependent=run;if(typeof module!=='undefined')module.exports={offlineIndependent:run};})(typeof globalThis!=='undefined'?globalThis:this);
+
+/* CAS V631.2.7: offline symbolic extension. Limited, explicit supported syntax. */
+(function(root){'use strict';const prior=root.offlineIndependent;
+function fmt(x){if(!Number.isFinite(x))throw Error('Non-finite result');return String(Number(x.toPrecision(12)))}
+function parseLinear(s,v){s=s.replace(/\s/g,'').replace(/−/g,'-').replace(/\*\*/g,'^');if(s.length>300)throw Error('Expression too long');if(!s)throw Error('Empty expression');let pieces=s.match(/[+-]?[^+-]+/g)||[],out={a:0,b:0};if(pieces.join('')!==s)throw Error('Invalid expression');for(let term of pieces){let sign=1;if(term[0]==='-'){sign=-1;term=term.slice(1)}else if(term[0]==='+')term=term.slice(1);if(term.includes(v)){let m=term.match(new RegExp('^(?:(\\d+(?:\\.\\d*)?|\\.\\d+)\\*?)?'+v+'$'));if(!m)throw Error('Only linear expressions supported');out.a+=sign*(m[1]?Number(m[1]):1)}else{if(!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(term))throw Error('Only linear expressions supported');out.b+=sign*Number(term)}}return out}
+function trig(op,s){let m=s.replace(/\s/g,'').match(/^(sin|cos|tan)\(([-+]?\d+(?:\.\d+)?)\)$/i);if(!m)throw Error('Use sin(0), cos(0), or tan(0); angles are radians');let x=Number(m[2]),f=Math[m[1].toLowerCase()];return fmt(f(x))}
+function run(op,s,v){v=v||'x';if(!/^[a-zA-Z]$/.test(v))throw Error('Use a one-letter variable');if(op==='trig')return trig(op,s);
+if(op==='linear'){let sides=s.split('=');if(sides.length!==2)throw Error('Use an equation such as 2*x+3=7');let l=parseLinear(sides[0],v),r=parseLinear(sides[1],v),a=l.a-r.a,b=r.b-l.b;if(Math.abs(a)<1e-12)return Math.abs(b)<1e-12?'Infinitely many solutions':'No solution';return v+' = '+fmt(b/a)}
+if(op==='evaluate'){let m=s.match(/^\s*(.+?)\s*;\s*([+-]?\d+(?:\.\d+)?)\s*$/);if(!m)throw Error('Use polynomial;value, e.g. x^2+2*x;3');let val=Number(m[2]),expression=m[1].replace(/\s/g,'');if(!Number.isFinite(val))throw Error('Invalid value');let terms=expression.replace(/−/g,'-').match(/[+-]?[^+-]+/g)||[],total=0;if(terms.join('')!==expression)throw Error('Invalid polynomial');for(let t of terms){let sign=1;if(t[0]==='-'){sign=-1;t=t.slice(1)}else if(t[0]==='+')t=t.slice(1);let re=new RegExp('^(?:(\\d+(?:\\.\\d*)?|\\.\\d+)\\*?)?'+v+'(?:\\^(\\d+))?$'),m=t.match(re);if(m){let n=m[2]?Number(m[2]):1;if(n>100)throw Error('Degree limit 100');total+=sign*(m[1]?Number(m[1]):1)*Math.pow(val,n)}else{if(!/^\d+(?:\.\d*)?$|^\.\d+$/.test(t))throw Error('Unsupported polynomial');total+=sign*Number(t)}}return fmt(total)}
+return prior(op,s,v)}root.offlineIndependent=run;if(typeof module!=='undefined')module.exports={offlineIndependent:run};})(typeof globalThis!=='undefined'?globalThis:this);
+
+</script><script>
+/* V631.2.7 safe offline expression parser: no eval or dynamic code execution. */
+(function(root){'use strict';
+const previous=root.offlineIndependent;
+function evaluate(source){
+ if(typeof source!=='string'||source.length>500)throw Error('Expression must be 1–500 characters');
+ const s=source.replace(/π/g,'pi').replace(/−/g,'-').replace(/×/g,'*').replace(/÷/g,'/').replace(/\*\*/g,'^');
+ const tokens=[];let i=0;while(i<s.length){if(/\s/.test(s[i])){i++;continue}let m=s.slice(i).match(/^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/);if(m){tokens.push({type:'num',value:Number(m[0])});i+=m[0].length;continue}m=s.slice(i).match(/^[a-zA-Z]+/);if(m){tokens.push({type:'name',value:m[0].toLowerCase()});i+=m[0].length;continue}if('+-*/^(),'.includes(s[i])){tokens.push({type:s[i]});i++;continue}throw Error('Unsupported character: '+s[i])}
+ let pos=0,depth=0;function peek(){return tokens[pos]?.type}function take(t){if(peek()!==t)throw Error('Expected '+t);pos++}function expression(){let v=term();while(peek()==='+'||peek()==='-'){let op=tokens[pos++].type,w=term();v=op==='+'?v+w:v-w}return v}
+ function term(){let v=unary();while(peek()==='*'||peek()==='/'){let op=tokens[pos++].type,w=unary();if(op==='/'&&w===0)throw Error('Division by zero');v=op==='*'?v*w:v/w}return v}
+ function unary(){if(peek()==='+'){pos++;return unary()}if(peek()==='-'){pos++;return -unary()}return power()}
+ function power(){let v=primary();if(peek()==='^'){pos++;v=Math.pow(v,unary())}return v}
+ const funcs={sin:Math.sin,cos:Math.cos,tan:Math.tan,asin:Math.asin,acos:Math.acos,atan:Math.atan,sqrt:Math.sqrt,abs:Math.abs,exp:Math.exp,ln:Math.log,log:Math.log10,log10:Math.log10,floor:Math.floor,ceil:Math.ceil};
+ function primary(){if(++depth>80)throw Error('Expression nesting limit exceeded');try{let t=tokens[pos++];if(!t)throw Error('Incomplete expression');if(t.type==='num')return t.value;if(t.type==='('){let v=expression();take(')');return v}if(t.type==='name'){if(t.value==='pi')return Math.PI;if(t.value==='e')return Math.E;if(!(t.value in funcs))throw Error('Unknown function or constant: '+t.value);take('(');let arg=expression();take(')');return funcs[t.value](arg)}throw Error('Unexpected token: '+t.type)}finally{depth--}}
+ if(!tokens.length)throw Error('Empty expression');let result=expression();if(pos!==tokens.length)throw Error('Unexpected trailing input');if(!Number.isFinite(result))throw Error('Result is undefined or outside supported range');return String(Number(result.toPrecision(13)))}
+ function run(op,s,v){if(op==='expression'||op==='calculate'||op==='trig')return evaluate(s);return previous(op,s,v)}
+ root.offlineIndependent=run;root.casExpressionEvaluate=evaluate;if(typeof module!=='undefined')module.exports={evaluate,offlineIndependent:run};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+</script><script>
+/* V631.2.7 safe offline expression parser: no eval or dynamic code execution. */
+(function(root){'use strict';
+const previous=root.offlineIndependent;
+function evaluate(source){
+ if(typeof source!=='string'||source.length>500)throw Error('Expression must be 1–500 characters');
+ const s=source.replace(/π/g,'pi').replace(/−/g,'-').replace(/×/g,'*').replace(/÷/g,'/').replace(/\*\*/g,'^');
+ const tokens=[];let i=0;while(i<s.length){if(/\s/.test(s[i])){i++;continue}let m=s.slice(i).match(/^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/);if(m){tokens.push({type:'num',value:Number(m[0])});i+=m[0].length;continue}m=s.slice(i).match(/^[a-zA-Z]+/);if(m){tokens.push({type:'name',value:m[0].toLowerCase()});i+=m[0].length;continue}if('+-*/^(),'.includes(s[i])){tokens.push({type:s[i]});i++;continue}throw Error('Unsupported character: '+s[i])}
+ let pos=0,depth=0;function peek(){return tokens[pos]?.type}function take(t){if(peek()!==t)throw Error('Expected '+t);pos++}function expression(){let v=term();while(peek()==='+'||peek()==='-'){let op=tokens[pos++].type,w=term();v=op==='+'?v+w:v-w}return v}
+ function term(){let v=unary();while(peek()==='*'||peek()==='/'){let op=tokens[pos++].type,w=unary();if(op==='/'&&w===0)throw Error('Division by zero');v=op==='*'?v*w:v/w}return v}
+ function unary(){if(peek()==='+'){pos++;return unary()}if(peek()==='-'){pos++;return -unary()}return power()}
+ function power(){let v=primary();if(peek()==='^'){pos++;v=Math.pow(v,unary())}return v}
+ const funcs={sin:Math.sin,cos:Math.cos,tan:Math.tan,asin:Math.asin,acos:Math.acos,atan:Math.atan,sqrt:Math.sqrt,abs:Math.abs,exp:Math.exp,ln:Math.log,log:Math.log10,log10:Math.log10,floor:Math.floor,ceil:Math.ceil};
+ function primary(){if(++depth>80)throw Error('Expression nesting limit exceeded');try{let t=tokens[pos++];if(!t)throw Error('Incomplete expression');if(t.type==='num')return t.value;if(t.type==='('){let v=expression();take(')');return v}if(t.type==='name'){if(t.value==='pi')return Math.PI;if(t.value==='e')return Math.E;if(!(t.value in funcs))throw Error('Unknown function or constant: '+t.value);take('(');let arg=expression();take(')');return funcs[t.value](arg)}throw Error('Unexpected token: '+t.type)}finally{depth--}}
+ if(!tokens.length)throw Error('Empty expression');let result=expression();if(pos!==tokens.length)throw Error('Unexpected trailing input');if(!Number.isFinite(result))throw Error('Result is undefined or outside supported range');return String(Number(result.toPrecision(13)))}
+ function run(op,s,v){if(op==='expression'||op==='calculate'||op==='trig')return evaluate(s);return previous(op,s,v)}
+ root.offlineIndependent=run;root.casExpressionEvaluate=evaluate;if(typeof module!=='undefined')module.exports={evaluate,offlineIndependent:run};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+/* V631.2.9: polynomial expansion with bounded recursive descent; no eval. */
+(function(root){'use strict';
+const old=root.offlineIndependent;
+function expand(input,variable){
+ if(typeof input!=='string'||input.length>500)throw Error('Expression too long');
+ if(!/^[a-zA-Z]$/.test(variable))throw Error('Use a single-letter variable');
+ let s=input.replace(/\s/g,'').replace(/−/g,'-').replace(/\*\*/g,'^'),i=0;
+ function skip(c){if(s[i]===c){i++;return true}return false}
+ function add(a,b,sign=1){let r=new Map(a);for(const [k,v] of b)r.set(k,(r.get(k)||0)+sign*v);return r}
+ function mul(a,b){let r=new Map();for(const [x,y] of a)for(const [u,v] of b){if(x+u>100)throw Error('Degree limit 100');r.set(x+u,(r.get(x+u)||0)+y*v)}return r}
+ function atom(){if(skip('(')){let p=sum();if(!skip(')'))throw Error('Missing )');return p}if(s[i]===variable){i++;return new Map([[1,1]])}let m=s.slice(i).match(/^(?:\d+(?:\.\d*)?|\.\d+)/);if(!m)throw Error('Expected a number, variable or ( at '+i);i+=m[0].length;return new Map([[0,Number(m[0])]])}
+ function pow(){let p=atom();if(skip('^')){let m=s.slice(i).match(/^\d+/);if(!m)throw Error('Expected integer exponent');i+=m[0].length;let n=Number(m[0]);if(n>100)throw Error('Exponent limit 100');let r=new Map([[0,1]]);for(let k=0;k<n;k++)r=mul(r,p);return r}return p}
+ function signed(){if(skip('+'))return signed();if(skip('-'))return mul(new Map([[0,-1]]),signed());return pow()}
+ function product(){let r=signed();while(skip('*'))r=mul(r,signed());return r}
+ function sum(){let r=product();while(i<s.length&&(s[i]==='+'||s[i]==='-')){let sign=s[i++]==='+'?1:-1;r=add(r,product(),sign)}return r}
+ let p=sum();if(i!==s.length)throw Error('Unexpected character at '+i);
+ let entries=[...p].filter(([,c])=>Math.abs(c)>1e-11).sort((a,b)=>b[0]-a[0]);if(!entries.length)return '0';
+ return entries.map(([n,c],idx)=>{let sign=c<0?'-':idx?'+':'';let a=Number(Math.abs(c).toPrecision(12));return sign+(n===0?String(a):(a===1?'':a+'*')+variable+(n===1?'':'^'+n))}).join(' ');
+}
+root.casExpandPolynomial=expand;
+root.offlineIndependent=function(op,s,v){if(op==='expand')return expand(s,v||'x');return old(op,s,v)};
+if(typeof module!=='undefined')module.exports={expand,offlineIndependent:root.offlineIndependent};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+/* V631.2.11 bounded offline elementary symbolic calculus; no eval. */
+(function(root){'use strict';
+const previous=root.offlineIndependent;
+function calculus(op,input,variable){
+ const v=variable||'x';if(!/^[A-Za-z]$/.test(v))throw Error('Use one-letter variable');
+ const s=input.replace(/\s+/g,'').replace(/−/g,'-').replace(/\*\*/g,'^');
+ if(!s||s.length>500)throw Error('Expression empty or too long');
+ // Recognize a linear argument a*x+b (including x, -x, x+b).
+ const escaped=v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ const argRe=new RegExp('^([+-]?(?:(?:\\d+(?:\\.\\d*)?|\\.\\d+)\\*?)?)'+escaped+'([+-](?:\\d+(?:\\.\\d*)?|\\.\\d+))?$');
+ function linear(arg){const m=arg.match(argRe);if(!m)throw Error('Supported function arguments are linear, such as 2*'+v+'+1');let a=m[1];a=(a===''||a==='+')?1:a==='-'?-1:Number(a.replace(/\*$/,''));if(!Number.isFinite(a)||a===0)throw Error('Invalid linear coefficient');return a}
+ const match=s.match(/^(sin|cos|exp|ln|log|sqrt)\(([^()]*)\)$/);
+ if(!match)throw Error('Supported elementary forms: sin(a*x+b), cos(a*x+b), exp(a*x+b), ln(a*x+b), sqrt(a*x+b)');
+ const fn=match[1],arg=match[2],a=linear(arg);const coef=n=>String(Number(n.toPrecision(12)));
+ if(op==='diff'){
+  if(fn==='sin')return coef(a)+'*cos('+arg+')';
+  if(fn==='cos')return coef(-a)+'*sin('+arg+')';
+  if(fn==='exp')return coef(a)+'*exp('+arg+')';
+  if(fn==='ln')return coef(a)+'/('+arg+')';
+  if(fn==='log')return coef(a)+'/((ln(10))*('+arg+'))';
+  if(fn==='sqrt')return coef(a)+'/(2*sqrt('+arg+'))';
+ }
+ if(op==='integrate'){
+  if(fn==='sin')return coef(-1/a)+'*cos('+arg+') + C';
+  if(fn==='cos')return coef(1/a)+'*sin('+arg+') + C';
+  if(fn==='exp')return coef(1/a)+'*exp('+arg+') + C';
+  if(fn==='ln')return '(('+arg+')*ln('+arg+')-('+arg+'))/'+coef(a)+' + C (real domain: '+arg+'>0)';
+  if(fn==='sqrt')return coef(2/(3*a))+'*('+arg+')^(3/2) + C (real domain: '+arg+'>=0)';
+  throw Error('Integration of log base 10 not yet supported');
+ }
+ throw Error('Unsupported operation');
+}
+root.casElementaryCalculus=calculus;
+root.offlineIndependent=function(op,s,v){if(op==='diff'||op==='integrate'){try{return previous(op,s,v)}catch(e){return calculus(op,s,v)}}return previous(op,s,v)};
+if(typeof module!=='undefined')module.exports={calculus};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+/* V631.2.11 bounded product/quotient differentiation and algebraic simplification. */
+(function(root){'use strict';
+const prior=root.offlineIndependent;
+function balanced(s){let depth=0;for(const c of s){if(c==='(')depth++;if(c===')'&&--depth<0)return false;}return depth===0}
+function splitTop(s,operator){let depth=0;for(let i=s.length-1;i>=0;i--){if(s[i]===')')depth++;else if(s[i]==='(')depth--;else if(depth===0&&s[i]===operator)return [s.slice(0,i),s.slice(i+1)];}return null}
+function derivative(s,v,depth=0){if(depth>8||s.length>300||!balanced(s))throw Error('Expression too complex');s=s.trim();if(s.startsWith('(')&&s.endsWith(')')&&balanced(s.slice(1,-1)))return derivative(s.slice(1,-1),v,depth+1);
+for(const op of ['+','-']){const p=splitTop(s,op);if(p&&p[0]&&p[1])return '('+derivative(p[0],v,depth+1)+')'+op+'('+derivative(p[1],v,depth+1)+')'}
+const q=splitTop(s,'/');if(q&&q[0]&&q[1])return '(('+derivative(q[0],v,depth+1)+')*('+q[1]+')-('+q[0]+')*('+derivative(q[1],v,depth+1)+'))/('+q[1]+')^2';
+const p=splitTop(s,'*');if(p&&p[0]&&p[1])return '(('+derivative(p[0],v,depth+1)+')*('+p[1]+')+('+p[0]+')*('+derivative(p[1],v,depth+1)+'))';
+return prior('diff',s,v)}
+root.casAdvancedDerivative=derivative;
+root.offlineIndependent=function(op,s,v){if(op==='diff'){try{return prior(op,s,v)}catch(e){return derivative(s.replace(/\s+/g,''),v||'x')}}return prior(op,s,v)};
+if(typeof module!=='undefined')module.exports={derivative};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+</script><script>
+/* CAS V631.2.14: offline linear systems and matrices, no eval. */
+(function(root){'use strict';
+const old=root.offlineIndependent;
+function num(s){s=s.trim();if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(s))throw Error('Invalid number: '+s);let n=Number(s);if(!Number.isFinite(n))throw Error('Nonfinite number');return n}
+function matrix(s){let rows=s.trim().split(/\s*;\s*/).map(r=>r.split(/\s*,\s*/).map(num));if(!rows.length||rows.length>4||rows.some(r=>r.length!==rows[0].length||r.length>5))throw Error('Use 1–4 rows of equal length (up to 5 columns)');return rows}
+function fmt(n){return String(Number((Math.abs(n)<1e-11?0:n).toPrecision(12)))}
+function rref(a){let m=a.map(r=>r.slice()),rows=m.length,cols=m[0].length,pivots=[],r=0;for(let c=0;c<cols&&r<rows;c++){let best=r;for(let i=r+1;i<rows;i++)if(Math.abs(m[i][c])>Math.abs(m[best][c]))best=i;if(Math.abs(m[best][c])<1e-10)continue;[m[r],m[best]]=[m[best],m[r]];let scale=m[r][c];for(let j=0;j<cols;j++)m[r][j]/=scale;for(let i=0;i<rows;i++)if(i!==r){let f=m[i][c];for(let j=0;j<cols;j++)m[i][j]-=f*m[r][j]}pivots.push(c);r++}return {m,pivots}}
+function solve(s){let a=matrix(s),n=a.length;if(n<2||n>3||a[0].length!==n+1)throw Error('Enter 2 or 3 augmented rows: coefficients then constant, separated by semicolons');let {m,pivots}=rref(a);for(let row of m)if(row.slice(0,n).every(v=>Math.abs(v)<1e-9)&&Math.abs(row[n])>1e-9)return 'No solution (inconsistent system)';if(pivots.filter(x=>x<n).length<n)return 'Infinitely many solutions (dependent equations)';let x=Array(n).fill(0);for(let i=0;i<pivots.length;i++)if(pivots[i]<n)x[pivots[i]]=m[i][n];return x.map((v,i)=>'xyz'[i]+' = '+fmt(v)).join(', ')}
+function determinant(s){let a=matrix(s),n=a.length;if(a[0].length!==n)throw Error('Determinant requires a square matrix');let d=1;for(let c=0;c<n;c++){let k=c;for(let i=c+1;i<n;i++)if(Math.abs(a[i][c])>Math.abs(a[k][c]))k=i;if(Math.abs(a[k][c])<1e-12)return '0';if(k!==c){[a[k],a[c]]=[a[c],a[k]];d=-d}let pivot=a[c][c];d*=pivot;for(let i=c+1;i<n;i++){let f=a[i][c]/pivot;for(let j=c+1;j<n;j++)a[i][j]-=f*a[c][j]}}return fmt(d)}
+function multiply(s){let parts=s.split('|');if(parts.length!==2)throw Error('Separate two matrices with |');let a=matrix(parts[0]),b=matrix(parts[1]);if(a[0].length!==b.length)throw Error('Matrix dimensions do not match');return a.map(row=>b[0].map((_,j)=>fmt(row.reduce((sum,v,k)=>sum+v*b[k][j],0))).join(', ')).join('; ')}
+function run(op,s,v){if(op==='system')return solve(s);if(op==='determinant')return determinant(s);if(op==='matmul')return multiply(s);return old(op,s,v)}
+root.offlineIndependent=run;root.casMultivariable={solve,determinant,multiply};if(typeof module!=='undefined')module.exports={solve,determinant,multiply};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+</script><script>
+function offline(op,expression){return offlineIndependent(op,expression,$('variable').value)}
+function integratePolynomial(expression, variable){
+ const v=variable.trim();if(!/^[a-zA-Z]$/.test(v))throw Error('Offline integration supports a single-letter variable');
+ let e=expression.replace(/\s+/g,'').replace(/−/g,'-').replace(/\*\*/g,'^');
+ if(!e||e.includes('='))throw Error('Enter a polynomial expression without an equation');
+ e=e.replace(/(^|[+\-])(?=\d*\.?\d*\*?[a-zA-Z])/g,'$1');
+ const terms=e.replace(/-/g,'+-').split('+').filter(Boolean),out=[];
+ for(let term of terms){let coeff,power;if(!term.includes(v)){if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(term))throw Error('Only polynomial terms are supported offline');coeff=Number(term);power=0}else{const escaped=v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const re=new RegExp('^([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)?)(?:\\*)?'+escaped+'(?:\\^([0-9]+))?$');const m=term.match(re);if(!m)throw Error('Use polynomial terms like 3*x^2 - 2*x + 5');coeff=(m[1]===''||m[1]==='+')?1:m[1]==='-'?-1:Number(m[1]);power=m[2]===undefined?1:Number(m[2]);}if(power>100)throw Error('Maximum polynomial degree is 100');const c=coeff/(power+1);if(c!==0)out.push({c,p:power+1});}
+ if(!out.length)return 'C';return out.map(({c,p},i)=>{const sign=c<0?'-':i?'+':'';const a=Math.abs(c);const rounded=Number(a.toPrecision(12));return sign+(rounded===1?'':rounded+'*')+v+(p===1?'':'^'+p)}).join(' ')+' + C';
+}
+function url(){return $('url').value.trim().replace(/\/$/,'')||location.origin.replace(/\/$/,'')}
+async function remote(op,expression){const endpoint=op==='legacy'?'/api/legacy':'/api/cas';const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),16000);try{const response=await fetch(url()+endpoint,{method:'POST',headers:{'Content-Type':'application/json','X-CAS-Token':$('token').value},body:JSON.stringify({expression,operation:op,variable:$('variable').value}),signal:controller.signal});const data=await response.json();if(!response.ok)throw Error(data.error||'Backend error '+response.status);return op==='legacy'?JSON.stringify(data.result||data,null,2):data.result}finally{clearTimeout(timer)}}
+async function run(op){const expression=$('expr').value.trim();if(!expression){result.textContent='Enter an expression first.';return}result.textContent='Working…';try{let output,engine=$('engine').value;if(op==='legacy'||engine==='python')output=await remote(op,expression);else if(op==='integrate'){try{output=offlineIndependent(op,expression,$('variable').value)}catch(e){if(engine==='offline'||!$('token').value)throw e;output=await remote(op,expression)}}else if(engine==='offline')output=offline(op,expression);else{try{output=offline(op,expression)}catch(e){if(!($('token').value))throw Error(e.message+' (To use Python, enter the access token.)');output=await remote(op,expression)}}result.textContent=String(output);saveHistory(op,expression,String(output))}catch(e){result.textContent='Error: '+e.message}}
+function getHistory(){try{return JSON.parse(localStorage.getItem('cas_history_222')||'[]')}catch{return []}}
+function renderHistory(){const root=$('history');root.replaceChildren();getHistory().forEach(item=>{const b=document.createElement('button');b.type='button';b.textContent=item.op+': '+item.expression.slice(0,45);b.onclick=()=>{$('expr').value=item.expression;result.textContent=item.answer};root.appendChild(b)})}
+function saveHistory(op,expression,answer){try{localStorage.setItem('cas_history_222',JSON.stringify([{op,expression,answer},...getHistory()].slice(0,20)));renderHistory()}catch{}}
+$('clearHistory').onclick=()=>{localStorage.removeItem('cas_history_222');renderHistory()};$('copyResult').onclick=async()=>{try{await navigator.clipboard.writeText(result.textContent)}catch{result.textContent+='\nClipboard unavailable in this browser.'}};renderHistory();
+document.querySelectorAll('[data-op]').forEach(b=>b.addEventListener('click',()=>run(b.dataset.op)));
+$('check').onclick=async()=>{const c=$('connection');c.textContent='Checking…';try{const r=await fetch(url()+'/health',{signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();c.textContent='Connected · Python bridge available · SymPy '+(d.sympy?'installed':'not installed')}catch(e){c.textContent='Not connected · Offline tools remain available ('+e.message+')'}};
+if(location.protocol.startsWith('http'))$('url').value=location.origin;
+$('offlineStatus').textContent='V631.2.12 symbolic cleanup loaded; offline caching requires secure HTTPS hosting.';
+document.getElementById('expr').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();run('calculate')}});
+</script><section style="max-width:860px;margin:16px auto;padding:18px;background:#17243a;border:1px solid #354761;border-radius:16px"><h2>V631.2.20 · Complex quadratic verification</h2><p>Enter coefficients a,b,c for ax²+bx+c=0, e.g. <code>1,0,1</code> for x²+1=0. This checks complex roots by substitution.</p><label for="complexCoefficients">Quadratic coefficients</label><input id="complexCoefficients" value="1,0,1" aria-label="Quadratic coefficients a b c"><button id="complexSolve" type="button">Solve & verify complex roots</button><pre id="complexOutput" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></section><script src="complex_verify_v631_2_20.js"></script><script>(function(){const button=document.getElementById('complexSolve');button.addEventListener('click',()=>{const out=document.getElementById('complexOutput');try{const args=casComplexV631220.parseCoefficients(document.getElementById('complexCoefficients').value);const result=casComplexV631220.solveQuadratic(...args);out.textContent=result.roots.map((z,i)=>'Root '+(i+1)+': '+z.re+(z.im<0?' - ':' + ')+Math.abs(z.im)+'i').join('\n')+'\nVerification: '+result.verification.status+'\nNumerical checking is not a formal proof.'}catch(e){out.textContent='Error: '+e.message}})})();</script></html>
+<script>if("serviceWorker" in navigator && location.protocol.startsWith("http")){navigator.serviceWorker.register("./sw.js").then(()=>{document.getElementById("offlineStatus").textContent="Offline cache registration succeeded. Wait for caching to complete and verify offline readiness before relying on it."}).catch(e=>{document.getElementById("offlineStatus").textContent="Offline cache unavailable: "+e.message})}else{document.getElementById("offlineStatus").textContent="Offline installation requires Safari over a supported secure connection; ordinary HTTP to a Windows LAN IP may not allow service workers."}document.getElementById("offlinecheck").onclick=()=>{document.getElementById("offlineStatus").textContent=(navigator.serviceWorker&&navigator.serviceWorker.controller)?"Offline cache active":"Offline cache not active; local-network HTTP may not support installation as an offline web app."}</script>
+<script>/* V631.2.12 bounded symbolic cleanup: formatting identities, not general CAS canonicalization. */
+(function(root){'use strict';
+function simplify(input){
+ if(typeof input!=='string'||input.length>1500)throw Error('Expression too long');
+ let s=input.replace(/\s+/g,'').replace(/−/g,'-');
+ if(!/^[0-9a-zA-Z_+*/^().,-]+$/.test(s))throw Error('Unsupported symbols');
+ let old;
+ for(let pass=0;pass<20;pass++){
+ old=s;
+ s=s.replace(/\(0\)/g,'0').replace(/\(1\)/g,'1');
+ s=s.replace(/\b1\*\(?([a-zA-Z][a-zA-Z0-9_]*)\)?/g,'$1');
+ s=s.replace(/\b0\*\(?[a-zA-Z][a-zA-Z0-9_]*\)?/g,'0');
+ s=s.replace(/\(([a-zA-Z][a-zA-Z0-9_]*)\)\*1\b/g,'$1');
+ s=s.replace(/\b([a-zA-Z][a-zA-Z0-9_]*)\*1\b/g,'$1');
+ s=s.replace(/\+0(?=\)|$|[+-])/g,'').replace(/\b0\+(?=[a-zA-Z(0-9])/g,'');
+ s=s.replace(/\b([a-zA-Z][a-zA-Z0-9_]*)\^1\b/g,'$1');
+ s=s.replace(/\b([a-zA-Z][a-zA-Z0-9_]*)\^0\b/g,'1');
+ s=s.replace(/\(\(([a-zA-Z][a-zA-Z0-9_]*)\)\)/g,'($1)');
+ if(s===old)break;
+ }
+ return s||'0';
+}
+root.casSimplifyResult=simplify;
+if(typeof module!=='undefined')module.exports={simplify};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+(function(){const result=document.getElementById('result');if(!result)return;const b=document.createElement('button');b.type='button';b.textContent='Simplify displayed result';b.onclick=()=>{try{result.textContent=casSimplifyResult(result.textContent)}catch(e){result.textContent='Error: '+e.message}};result.insertAdjacentElement('afterend',b)})();</script>
+<script>/* CAS V631.2.13 bounded offline equation solver; no eval. */
+(function(root){'use strict';
+function solve(input,variable='x'){
+ if(typeof input!=='string'||input.length>600)throw Error('Equation too long');
+ if(!/^[a-zA-Z]$/.test(variable))throw Error('Variable must be one letter');
+ let s=input.replace(/\s+/g,'').replace(/−/g,'-').replace(/²/g,'^2').replace(/³/g,'^3');
+ if(!/^[0-9a-zA-Z.+*^()=\/-]+$/.test(s))throw Error('Unsupported characters');
+ if((s.match(/=/g)||[]).length!==1)throw Error('Enter exactly one = sign');
+ let parts=s.split('=');
+ function parse(source){let i=0,depth=0;const peek=()=>source[i];
+ const add=(a,b,k=1)=>{let c=a.map((v,j)=>v+k*b[j]);if(c.some(v=>!Number.isFinite(v)))throw Error('Overflow');return c};
+ const mul=(a,b)=>{let c=[0,0,0];for(let j=0;j<3;j++)for(let k=0;k<3;k++)if(a[j]&&b[k]){if(j+k>2)throw Error('Only quadratic equations supported');c[j+k]+=a[j]*b[k]}return c};
+ function atom(){if(++depth>80)throw Error('Expression nesting too deep');let r;if(peek()==='+'){i++;r=atom()}else if(peek()==='-'){i++;r=atom().map(x=>-x)}else if(peek()==='('){i++;r=expr();if(peek()!==')')throw Error('Missing )');i++}else if(peek()===variable){i++;r=[0,1,0]}else{let m=source.slice(i).match(/^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/);if(!m)throw Error('Unsupported token near '+source.slice(i,i+12));i+=m[0].length;r=[Number(m[0]),0,0]}depth--;return r}
+ function power(){let a=atom();if(peek()==='^'){i++;let m=source.slice(i).match(/^\d+/);if(!m)throw Error('Exponent must be nonnegative integer');i+=m[0].length;let n=Number(m[0]);if(n>2)throw Error('Maximum exponent is 2');let r=[1,0,0];for(let j=0;j<n;j++)r=mul(r,a);return r}return a}
+ function term(){let a=power();while(peek()==='*'||peek()==='/'){let op=source[i++],b=power();if(op==='*')a=mul(a,b);else{if(b[1]||b[2]||b[0]===0)throw Error('Division requires a nonzero constant');a=a.map(x=>x/b[0])}}return a}
+ function expr(){let a=term();while(peek()==='+'||peek()==='-'){let op=source[i++];a=add(a,term(),op==='+'?1:-1)}return a}
+ let result=expr();if(i!==source.length)throw Error('Unexpected character at position '+(i+1));return result}
+ let l=parse(parts[0]),r=parse(parts[1]),[c,b,a]=l.map((v,i)=>v-r[i]);let eps=1e-11*Math.max(1,Math.abs(a),Math.abs(b),Math.abs(c));
+ let fmt=n=>Number(n.toPrecision(12)).toString();
+ if(Math.abs(a)<=eps){if(Math.abs(b)<=eps)return Math.abs(c)<=eps?'All real numbers satisfy the equation':'No solution';return variable+' = '+fmt(-c/b)}
+ let d=b*b-4*a*c;if(Math.abs(d)<=eps)return variable+' = '+fmt(-b/(2*a));
+ if(d>0){let sq=Math.sqrt(d),q=-0.5*(b+Math.sign(b||1)*sq);let x1=q/a,x2=c/q;return variable+' = '+[x1,x2].sort((x,y)=>x-y).map(fmt).join(' or '+variable+' = ')}
+ let real=fmt(-b/(2*a)),imag=fmt(Math.sqrt(-d)/(2*Math.abs(a)));return variable+' = '+real+' + '+imag+'i or '+variable+' = '+real+' - '+imag+'i';
+}
+root.casSolveEquation=solve;if(typeof module!=='undefined')module.exports={solve};
+})(typeof globalThis!=='undefined'?globalThis:this);
+</script>
+<script>/* V631.2.13 interface addition */
+(function(){const input=document.getElementById('expr'),result=document.getElementById('result');if(!input||!result)return;const b=document.createElement('button');b.type='button';b.textContent='Solve equation (offline, degree ≤ 2)';b.addEventListener('click',()=>{try{let v=document.getElementById('variable');let answer=casSolveEquation(input.value,(v&&v.value)||'x');result.textContent=answer}catch(e){result.textContent='Error: '+e.message}});result.insertAdjacentElement('afterend',b)})();
+</script>
+
+<script>/* CAS V631.2.15: independent matrix operations; no eval or network. */
+(function(root){'use strict';
+function parse(s){let a=s.trim().split(/\s*;\s*/).map(r=>r.split(/\s*,\s*/).map(x=>{x=x.trim();if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(x))throw Error('Invalid matrix number');let v=Number(x);if(!Number.isFinite(v))throw Error('Nonfinite number');return v}));if(!a.length||a.length>4||!a[0].length||a[0].length>4||a.some(r=>r.length!==a[0].length))throw Error('Use a rectangular matrix up to 4 by 4');return a}
+function fmt(n){return String(Number((Math.abs(n)<1e-11?0:n).toPrecision(12)))}
+function show(a){return a.map(r=>r.map(fmt).join(', ')).join('; ')}
+function transpose(s){let a=parse(s);return show(a[0].map((_,j)=>a.map(r=>r[j])))}
+function combine(s,sign){let p=s.split('|');if(p.length!==2)throw Error('Separate two matrices using |');let a=parse(p[0]),b=parse(p[1]);if(a.length!==b.length||a[0].length!==b[0].length)throw Error('Matrices must have matching dimensions');return show(a.map((r,i)=>r.map((v,j)=>v+sign*b[i][j])))}
+function inverse(s){let a=parse(s),n=a.length;if(a[0].length!==n)throw Error('Inverse requires square matrix');let m=a.map((r,i)=>r.concat(Array.from({length:n},(_,j)=>+(i===j))));for(let k=0;k<n;k++){let p=k;for(let i=k+1;i<n;i++)if(Math.abs(m[i][k])>Math.abs(m[p][k]))p=i;if(Math.abs(m[p][k])<1e-12)throw Error('Singular matrix has no inverse');[m[k],m[p]]=[m[p],m[k]];let v=m[k][k];for(let j=0;j<2*n;j++)m[k][j]/=v;for(let i=0;i<n;i++)if(i!==k){let f=m[i][k];for(let j=0;j<2*n;j++)m[i][j]-=f*m[k][j]}}return show(m.map(r=>r.slice(n)))}
+function eigen2(s){let a=parse(s);if(a.length!==2||a[0].length!==2)throw Error('Eigenvalues currently support 2 by 2 matrices');let t=a[0][0]+a[1][1],d=a[0][0]*a[1][1]-a[0][1]*a[1][0],disc=t*t-4*d;if(disc>=0){let q=Math.sqrt(disc);return 'λ = '+fmt((t+q)/2)+', '+fmt((t-q)/2)}return 'λ = '+fmt(t/2)+' ± '+fmt(Math.sqrt(-disc)/2)+'i'}
+function run(op,s){if(op==='transpose')return transpose(s);if(op==='matadd')return combine(s,1);if(op==='matsub')return combine(s,-1);if(op==='inverse')return inverse(s);if(op==='eigen2')return eigen2(s);throw Error('Unknown matrix operation')}
+root.casMatrixV631215={run,transpose,add:s=>combine(s,1),subtract:s=>combine(s,-1),inverse,eigen2};if(typeof module!=='undefined')module.exports=root.casMatrixV631215;
+})(typeof globalThis!=='undefined'?globalThis:this);
+</script><script>
+(function(){const input=document.getElementById('expr'),result=document.getElementById('result');if(!input||!result)return;const group=document.createElement('div');group.setAttribute('aria-label','Matrix tools V631.2.15');const ops=[['Transpose','transpose'],['Matrix add','matadd'],['Matrix subtract','matsub'],['Matrix inverse','inverse'],['2×2 eigenvalues','eigen2']];for(const [label,op] of ops){let b=document.createElement('button');b.type='button';b.textContent=label;b.addEventListener('click',()=>{try{result.textContent=casMatrixV631215.run(op,input.value)}catch(e){result.textContent='Error: '+e.message}});group.appendChild(b)}result.insertAdjacentElement('afterend',group)})();
+</script>
+<script src="self_check_v631_2_18.js"></script><script>(function(){const input=document.getElementById('expr'),result=document.getElementById('result');if(!input||!result)return;const b=document.createElement('button');b.type='button';b.textContent='Solve + independently check (offline)';b.addEventListener('click',()=>{try{const variable=(document.getElementById('variable')||{}).value||'x';result.textContent=casSelfCheckV631218.format(casSelfCheckV631218.solveAndCheck(input.value,variable))}catch(e){result.textContent='Error: '+e.message}});result.insertAdjacentElement('afterend',b)})();</script>
+
+<script src="reasoning_v631_2_19.js"></script><script>(function(){const input=document.getElementById('expr'),out=document.getElementById('result');if(!input||!out)return;const b=document.createElement('button');b.type='button';b.textContent='Solve, cross-check & correct (degree ≤ 2)';b.addEventListener('click',()=>{try{const v=document.getElementById('variable')?.value||'x',r=casReasoningV631219.solveVerified(input.value,v);out.textContent=r.answer+'\nVerification: '+r.status+'\nCorrection: '+(r.corrected?'applied':'not needed or not possible')+(r.reason?'\n'+r.reason:'')+'\nNumerical checking is not a proof.'}catch(e){out.textContent='Error: '+e.message}});input.insertAdjacentElement('afterend',b)})();</script>
+
+<script>/* CAS V631.2.21 offline multivariable polynomial calculus. No eval. */
+(function(root){'use strict';
+function parse(input){let s=input.replace(/\s+/g,'').replace(/−/g,'-');if(!s||s.length>1000)throw Error('Enter a polynomial under 1000 characters');let i=0,terms={};
+function add(a,b,k=1){let c={...a};for(let key in b)c[key]=(c[key]||0)+k*b[key];return clean(c)}
+function clean(a){for(let k in a)if(Math.abs(a[k])<1e-12)delete a[k];return a}
+function mul(a,b){let c={};for(let ka in a)for(let kb in b){let e=ka.split(',').map(Number).map((v,i)=>v+Number(kb.split(',')[i]));if(e.some(v=>v>20)||e.reduce((x,y)=>x+y,0)>20)throw Error('Maximum total degree is 20');let key=e.join(',');c[key]=(c[key]||0)+a[ka]*b[kb]}return clean(c)}
+function atom(){if(s[i]==='('){i++;let a=expr();if(s[i++]!==')')throw Error('Missing closing parenthesis');return a}let v=s[i];if(/[xyz]/.test(v||'')&&v){i++;let a={};a[({x:'1,0,0',y:'0,1,0',z:'0,0,1'})[v]]=1;return a}let m=s.slice(i).match(/^(?:\d+(?:\.\d*)?|\.\d+)/);if(!m)throw Error('Invalid token at '+(i+1));i+=m[0].length;return {'0,0,0':Number(m[0])}}
+function power(){let a=atom();if(s[i]==='^'){i++;let m=s.slice(i).match(/^\d+/);if(!m)throw Error('Exponent must be a nonnegative integer');i+=m[0].length;let n=Number(m[0]);if(n>20)throw Error('Maximum exponent is 20');let r={'0,0,0':1};for(let j=0;j<n;j++)r=mul(r,a);return r}return a}
+function factor(){if(s[i]==='+'){i++;return factor()}if(s[i]==='-'){i++;return mul({'0,0,0':-1},factor())}return power()}
+function term(){let a=factor();while(s[i]==='*'){i++;a=mul(a,factor())}return a}
+function expr(){let a=term();while(s[i]==='+'||s[i]==='-'){let op=s[i++];a=add(a,term(),op==='+'?1:-1)}return a}
+let a=expr();if(i!==s.length)throw Error('Unexpected token at '+(i+1)+'; use * for multiplication');return a}
+function fmt(n){return String(Number(n.toPrecision(12)))}
+function show(a){let entries=Object.entries(a).filter(([,c])=>Math.abs(c)>1e-12).sort((a,b)=>{let x=a[0].split(',').map(Number),y=b[0].split(',').map(Number);return y.reduce((s,v)=>s+v,0)-x.reduce((s,v)=>s+v,0)||y[0]-x[0]||y[1]-x[1]||y[2]-x[2]});if(!entries.length)return '0';return entries.map(([key,c],i)=>{let e=key.split(',').map(Number),v=e.map((n,j)=>n?('xyz'[j]+(n===1?'':'^'+n)):'').filter(Boolean).join('*');let sign=c<0?'-':(i?'+':'');let mag=Math.abs(c),coeff=v&&Math.abs(mag-1)<1e-12?'':fmt(mag);return sign+coeff+(coeff&&v?'*':'')+v}).join('')}
+function derivative(s,v){if(!'xyz'.includes(v)||v.length!==1)throw Error('Variable must be x, y or z');let a=parse(s),b={},idx='xyz'.indexOf(v);for(let [k,c] of Object.entries(a)){let e=k.split(',').map(Number);if(e[idx]){let n=e[idx];e[idx]--;let key=e.join(',');b[key]=(b[key]||0)+c*n}}return show(b)}
+function gradient(s){return ['x','y','z'].map(v=>'∂/∂'+v+': '+derivative(s,v)).join('\n')}
+function evaluate(s,values){let a=parse(s),sum=0;for(let [k,c] of Object.entries(a)){let ex=k.split(',').map(Number);sum+=c*ex.reduce((p,n,i)=>p*Math.pow(values['xyz'[i]]||0,n),1)}return sum}
+function verify(s,v,point){let h=1e-5*Math.max(1,Math.abs(point[v]||0)),left={...point,[v]:(point[v]||0)-h},right={...point,[v]:(point[v]||0)+h};let numerical=(evaluate(s,right)-evaluate(s,left))/(2*h),symbolic=evaluate(derivative(s,v),point),tol=1e-5*Math.max(1,Math.abs(numerical),Math.abs(symbolic));return {symbolic,numerical,passed:Math.abs(symbolic-numerical)<=tol}}
+root.casMultivariableCalculusV631221={parse,derivative,gradient,evaluate,verify};if(typeof module!=='undefined')module.exports=root.casMultivariableCalculusV631221;
+})(typeof globalThis!=='undefined'?globalThis:this);
+</script><script>
+(function(){const input=document.getElementById('expr'),out=document.getElementById('result');if(!input||!out)return;let group=document.createElement('div');group.setAttribute('aria-label','Multivariable calculus');for(let [label,fn] of [['Partial ∂/∂x',()=>casMultivariableCalculusV631221.derivative(input.value,'x')],['Partial ∂/∂y',()=>casMultivariableCalculusV631221.derivative(input.value,'y')],['Partial ∂/∂z',()=>casMultivariableCalculusV631221.derivative(input.value,'z')],['Gradient (x,y,z)',()=>casMultivariableCalculusV631221.gradient(input.value)],['Verify ∂/∂x at (1,2,3)',()=>JSON.stringify(casMultivariableCalculusV631221.verify(input.value,'x',{x:1,y:2,z:3}))]]){let b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{try{out.textContent=fn()}catch(e){out.textContent='Error: '+e.message}};group.appendChild(b)}out.insertAdjacentElement('afterend',group)})();
+</script>
+<script>/* CAS V631.2.23: 3D vectors and polynomial triple integration. */
+(function(root){'use strict';
+const poly=root.casMultivariableCalculusV631221;
+if(!poly)throw Error('Multivariable calculus engine required');
+function vector(value){let a=Array.isArray(value)?value:String(value).split(',');if(a.length!==3)throw Error('Enter exactly three comma-separated components');return a.map(x=>{let n=Number(String(x).trim());if(!Number.isFinite(n))throw Error('Vector components must be finite numbers');return n})}
+function fmt(n){return Number(n.toPrecision(12))}
+function dot(a,b){a=vector(a);b=vector(b);return a.reduce((s,v,i)=>s+v*b[i],0)}
+function cross(a,b){a=vector(a);b=vector(b);return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]].map(fmt)}
+function magnitude(a){return Math.hypot(...vector(a))}
+function normalize(a){a=vector(a);let m=Math.hypot(...a);if(m===0)throw Error('Zero vector cannot be normalized');return a.map(v=>fmt(v/m))}
+function tripleIntegral(expression,bounds){if(!Array.isArray(bounds)||bounds.length!==3)throw Error('Specify [[xlow,xhigh],[ylow,yhigh],[zlow,zhigh]]');let b=bounds.map(pair=>{if(!Array.isArray(pair)||pair.length!==2)throw Error('Each axis needs two bounds');let x=pair.map(Number);if(x.some(n=>!Number.isFinite(n)))throw Error('Bounds must be finite');return x});let sum=0;for(let [key,coef] of Object.entries(poly.parse(String(expression)))){let ex=key.split(',').map(Number);let term=coef;for(let i=0;i<3;i++){let n=ex[i]+1;term*=(Math.pow(b[i][1],n)-Math.pow(b[i][0],n))/n}sum+=term}if(!Number.isFinite(sum))throw Error('Integral overflow');return fmt(sum)}
+const api={vector,dot,cross,magnitude,normalize,tripleIntegral};root.casVector3DV631223=api;if(typeof module!=='undefined')module.exports=api;
+})(typeof globalThis!=='undefined'?globalThis:this);
+</script>
+
+<script>(function(){const input=document.getElementById('expr'),out=document.getElementById('result');if(!input||!out)return;const group=document.createElement('div');group.setAttribute('aria-label','3D vector mathematics V631.2.23');const ops=[['Dot product (a | b)',()=>{let [a,b]=input.value.split('|');if(!b)throw Error('Use 1,2,3 | 4,5,6');return casVector3DV631223.dot(a,b)}],['Cross product (a | b)',()=>{let [a,b]=input.value.split('|');if(!b)throw Error('Use 1,2,3 | 4,5,6');return casVector3DV631223.cross(a,b).join(', ')}],['Vector magnitude',()=>casVector3DV631223.magnitude(input.value)],['Normalize vector',()=>casVector3DV631223.normalize(input.value).join(', ')],['Triple integral (x,y,z bounds)',()=>{let [expr,...limits]=input.value.split(';');if(limits.length!==6)throw Error('Use x*y*z;0;1;0;1;0;1');return casVector3DV631223.tripleIntegral(expr,[[+limits[0],+limits[1]],[+limits[2],+limits[3]],[+limits[4],+limits[5]]])}]];for(let [label,fn] of ops){let b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{try{out.textContent=String(fn())}catch(e){out.textContent='Error: '+e.message}};group.appendChild(b)}out.insertAdjacentElement('afterend',group)})();</script>
+<section style="max-width:860px;margin:16px auto;padding:18px;background:#17243a;border:1px solid #354761;border-radius:16px"><h2>V631.2.24 · 3D Geometry</h2><p>Enter vectors as <code>1,2,3 | 4,5,6</code>. Angles are in degrees. For a sphere, enter <code>0,0,0 | 5</code> (center | radius).</p><label for="geometryInput">3D geometry input</label><input id="geometryInput" value="1,2,3 | 4,5,6" style="width:100%;max-width:600px"><div id="geometryControls"></div><pre id="geometryOutput" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></section><script src="geometry_v631_2_24.js"></script><script>(function(){const inp=document.getElementById('geometryInput'),out=document.getElementById('geometryOutput'),controls=document.getElementById('geometryControls');if(!inp||!controls)return;const G=casGeometryV631224;const operations=[['Distance',a=>G.distance(a[0],a[1])],['Angle (degrees)',a=>G.angle(a[0],a[1])*180/Math.PI],['Line (point | direction)',a=>G.line(a[0],a[1])],['Plane (point | normal)',a=>G.plane(a[0],a[1])],['Sphere (center | radius)',a=>G.sphere(a[0],a[1])],['Point-to-plane distance (point | plane point | normal)',a=>G.pointPlaneDistance(a[0],a[1],a[2])],['Line-plane intersection (line point | direction | plane point | normal)',a=>G.linePlaneIntersection(a[0],a[1],a[2],a[3])]];for(const [label,fn] of operations){const b=document.createElement('button');b.type='button';b.textContent=label;b.addEventListener('click',()=>{try{const args=inp.value.split('|').map(s=>s.trim());out.textContent=JSON.stringify(fn(args),null,2)}catch(e){out.textContent='Error: '+e.message}});controls.appendChild(b)}})();</script>
+<section style="max-width:860px;margin:16px auto;padding:18px;background:#17243a;color:#f3f6fc;border-radius:16px"><h2>V631.2.25 · Spatial Transformations</h2><p>Rotation: vector | axis | degrees (example: 1,0,0 | z | 90). Translation: vector | offset. Line distance: point | direction | point | direction.</p><input id="spatialInput" aria-label="Spatial input" value="1,0,0 | z | 90" style="width:100%;max-width:620px"><div id="spatialButtons"></div><pre id="spatialOutput" role="status" style="white-space:pre-wrap"></pre></section><script src="spatial_v631_2_25.js"></script><script>(function(){const i=document.getElementById('spatialInput'),o=document.getElementById('spatialOutput'),b=document.getElementById('spatialButtons');const S=casSpatialV631225;const ops={'Rotate':a=>S.rotate(a[0],a[1],a[2]),'Rotation matrix':a=>S.rotationMatrix(a[1],Number(a[2])*Math.PI/180),'Translate':a=>S.translate(a[0],a[1]),'Scale':a=>S.scale(a[0],a[1]),'Line-to-line distance':a=>S.lineLineDistance(...a),'Verify rotation':a=>S.verifyRotation(a[0],a[1],a[2])};Object.entries(ops).forEach(([label,fn])=>{const button=document.createElement('button');button.textContent=label;button.type='button';button.onclick=()=>{try{o.textContent=JSON.stringify(fn(i.value.split('|').map(x=>x.trim())),null,2)}catch(e){o.textContent='Error: '+e.message}};b.appendChild(button)})})();</script>
+<section id="cas3d" style="background:#17243a;color:#f3f6fc;padding:18px;border-radius:16px;margin:18px 0"><h2>V631.2.26 · Interactive 3D Mathematics</h2><p>Rotate the scene by dragging. Zoom using a trackpad or mouse wheel. Works offline.</p><label>View <select id="cas3dMode"><option value="vectors">3D vector</option><option value="rotation">Z-axis rotation</option><option value="surface">Surface y = 1.6 sin(x) cos(z)</option></select></label><p>Vector coordinates: <input id="cas3dX" type="number" value="2" step="0.5" style="width:65px"> <input id="cas3dY" type="number" value="2" step="0.5" style="width:65px"> <input id="cas3dZ" type="number" value="1" step="0.5" style="width:65px"> Rotation ° <input id="cas3dAngle" type="number" value="90" style="width:70px"></p><canvas id="cas3dCanvas" width="640" height="440" aria-label="Interactive three-dimensional graph" style="width:100%;max-width:640px;touch-action:none;border-radius:12px"></canvas><p id="cas3dStatus" role="status"></p><button id="cas3dReset" type="button">Reset view</button></section><script src="visualization_v631_2_26.js"></script>
+<section id="casGraph227" style="background:#17243a;color:#f3f6fc;padding:18px;border-radius:16px;margin:18px 0"><h2>V631.2.27 · Interactive 3D Surface Grapher</h2><p>Graph up to four surfaces y = f(x,z). Use explicit multiplication, e.g. sin(x)*cos(z). Works without network access once opened.</p><label>y = <input id="casGraphExpression" value="sin(x)*cos(z)" style="width:min(85%,350px);font-size:16px" aria-label="Surface expression"></label> <button id="casGraphAdd" type="button">Add surface</button> <button id="casGraphClear" type="button">Clear</button> <button id="casGraphReset" type="button">Reset view</button><p id="casGraphError" role="alert"></p><div id="casGraphList"></div><canvas id="casGraphCanvas" width="700" height="460" aria-label="Interactive three dimensional surface graphs" style="width:100%;max-width:700px;touch-action:none;border-radius:12px"></canvas><p id="casGraphStatus" role="status"></p></section><script src="graphing_v631_2_27.js"></script>
+
+<section id="casPhysics231" style="padding:18px;background:#142238;color:white;border-radius:14px;margin:16px 0"><h2>V631.2.31 · Gravitational N-body Simulator</h2><p>Offline Newtonian gravity, 1–12 bodies. Inputs use kilograms, meters, meters/second, and seconds. Example: Earth and a nearby test object. Simulation is approximate, not mission-grade.</p><textarea id="casPhysicsInput" rows="11" style="width:100%;box-sizing:border-box;font-family:monospace" aria-label="Physics simulation JSON">{"bodies":[{"mass":5.972e24,"position":[0,0,0],"velocity":[0,0,0]},{"mass":1000,"position":[7000000,0,0],"velocity":[0,7546,0]}],"dt":20,"steps":600,"softening":1000}</textarea><p><button id="casPhysicsRun" type="button">Simulate gravitational motion</button></p><canvas id="casPhysicsCanvas" width="700" height="450" style="width:100%;max-width:700px" aria-label="XY orbital trajectory projection"></canvas><p id="casPhysicsStatus" role="status"></p></section><script src="physics_v631_2_31.js"></script>
+<section id="casOrbitalPanel" style="margin:20px 0;padding:16px;border:1px solid #74839a;border-radius:12px"><h2>V631.2.32 Orbital Mechanics</h2><p>Enter central mass (kg), position (m), velocity (m/s). Newtonian two-body approximation; does not include perturbations.</p><textarea id="casOrbitalInput" rows="7" style="width:100%;box-sizing:border-box">{"centralMass":5.9722e24,"position":[6771000,0,0],"velocity":[0,7672.5,0]}</textarea><button id="casOrbitalAnalyze" type="button">Analyze Orbit</button><pre id="casOrbitalResult" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></pre></section><script>(function(root){'use strict';
+const G=6.67430e-11,TAU=2*Math.PI;
+function positive(x,label){if(!Number.isFinite(x)||x<=0)throw Error(label+' must be positive and finite');return x}
+function vector(v,label){if(!Array.isArray(v)||v.length!==3||v.some(x=>!Number.isFinite(x)))throw Error(label+' must be a finite 3-vector');return v}
+function dot(a,b){return a.reduce((s,x,i)=>s+x*b[i],0)}
+function cross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]}
+function norm(a){return Math.hypot(...a)}
+function circularSpeed(m,r){return Math.sqrt(G*positive(m,'mass')/positive(r,'radius'))}
+function escapeSpeed(m,r){return Math.sqrt(2*G*positive(m,'mass')/positive(r,'radius'))}
+function orbitalPeriod(m,a){return TAU*Math.sqrt(positive(a,'semimajor axis')**3/(G*positive(m,'mass')))}
+function potential(m,r){return -G*positive(m,'mass')/positive(r,'radius')}
+function elements(m,r,v){positive(m,'central mass');vector(r,'position');vector(v,'velocity');let R=norm(r);positive(R,'position magnitude');let mu=G*m,V2=dot(v,v),h=cross(r,v),H=norm(h);if(H<1e-15*R*Math.max(1,norm(v)))throw Error('Radial trajectory: orbital plane undefined');let ev=cross(v,h).map((x,i)=>x/mu-r[i]/R),e=norm(ev),specificEnergy=V2/2-mu/R,semiMajorAxis=Math.abs(specificEnergy)<1e-14*mu/R?null:-mu/(2*specificEnergy),inclination=Math.acos(Math.max(-1,Math.min(1,h[2]/H)));let periapsis=H*H/(mu*(1+e)),apoapsis=e<1?H*H/(mu*(1-e)):null;return {eccentricity:e,semiMajorAxis,periapsis,apoapsis,inclinationRadians:inclination,specificEnergy,specificAngularMomentum:H,classification:e<1-1e-8?'elliptic':e>1+1e-8?'hyperbolic':'near-parabolic',periodSeconds:semiMajorAxis>0&&e<1?TAU*Math.sqrt(semiMajorAxis**3/mu):null}}
+root.casOrbitalV631232={G,circularSpeed,escapeSpeed,orbitalPeriod,potential,elements};
+if(typeof document==='undefined')return;let btn=document.getElementById('casOrbitalAnalyze');if(!btn)return;btn.addEventListener('click',()=>{let output=document.getElementById('casOrbitalResult');try{let data=JSON.parse(document.getElementById('casOrbitalInput').value),m=data.centralMass,r=data.position,v=data.velocity,orb=elements(m,r,v),radius=norm(r);output.textContent=JSON.stringify({orbit:orb,circularSpeedMS:circularSpeed(m,radius),escapeSpeedMS:escapeSpeed(m,radius),potentialJPerKg:potential(m,radius)},null,2)}catch(e){output.textContent='Error: '+e.message}})
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<section id="casPlanetaryPanel" style="margin:20px 0;padding:18px;background:#142238;color:#f3f6fc;border-radius:14px"><h2>V631.2.33 · Planetary Transfers & Satellite Planning</h2><p>Approximate Hohmann transfers between circular, coplanar planetary orbits. Estimates exclude launch, landing, inclination changes, and planetary gravity wells.</p><label>From <select id="casPlanetFrom"><option>Earth</option><option>Mars</option><option>Venus</option><option>Mercury</option><option>Jupiter</option><option>Saturn</option></select></label> <label>To <select id="casPlanetTo"><option>Mars</option><option>Earth</option><option>Venus</option><option>Mercury</option><option>Jupiter</option><option>Saturn</option></select></label><button type="button" id="casPlanetaryRun">Calculate Transfer</button><h3>Satellite circular orbit</h3><label>Body <select id="casSatelliteBody"><option>Earth</option><option>Mars</option><option>Moon</option><option>Jupiter</option><option>Venus</option></select></label><label>Altitude (km) <input id="casSatelliteAltitude" type="number" min="0" value="400"></label><button type="button" id="casSatelliteRun">Calculate Satellite Orbit</button><pre id="casPlanetaryOutput" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></section><script src="planetary_v631_2_33.js"></script>
+
+<section id="cas87Panel" style="padding:16px;margin:16px 0;border:1px solid #777;border-radius:12px"><h2>V631.2.87 — Space Mission & Propulsion Planner</h2><p>Idealized interplanetary Hohmann transfer and rocket fuel estimates. Not a flight-ready trajectory.</p><label for="cas87Description">Describe mission:</label><textarea id="cas87Description" rows="3" style="display:block;width:95%;max-width:800px">Earth to Mars spacecraft, dry mass 1000, isp 320</textarea><button id="cas87Run" type="button">Calculate Mission</button> <button id="cas87Compare" type="button">Compare Propulsion</button> <button id="cas87Export" type="button">Export JSON</button><pre id="cas87Output" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></section>
+<script src="mission_space_planner_v631_2_87.js"></script>

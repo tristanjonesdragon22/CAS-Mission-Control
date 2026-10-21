@@ -1,0 +1,23 @@
+/* V631.2.46: deterministic adaptive mission forecasting. Educational simulations only. */
+(function(root){'use strict';
+const decision=root.casDecisionEngineV631245;
+const finite=(v,name,lo,hi)=>{if(typeof v!=='number'||!Number.isFinite(v)||v<lo||v>hi)throw Error(name+' must be between '+lo+' and '+hi);return v};
+function forecast(input={}){
+ if(!decision||typeof decision.analyze!=='function')throw Error('V631.2.45 decision engine is required');
+ const hours=finite(input.hours??24,'hours',1,240),initialWh=finite(input.initialWh??2000,'initialWh',0,2400),solarW=finite(input.solarW??400,'solarW',0,100000),ambientC=finite(input.ambientC??-30,'ambientC',-200,200),signalQuality=finite(input.signalQuality??.9,'signalQuality',0,1);
+ const baseline={hours,initialWh,solarW,ambientC,signalQuality};
+ const scenarios=[{id:'nominal',description:'Specified operating conditions',...baseline},{id:'low_solar',description:'Solar generation reduced by 40%',...baseline,solarW:solarW*.6},{id:'cold',description:'Ambient temperature reduced by 20°C',...baseline,ambientC:Math.max(-200,ambientC-20)},{id:'weak_signal',description:'Signal quality reduced by 0.3',...baseline,signalQuality:Math.max(0,signalQuality-.3)}];
+ const results=scenarios.map(s=>{const r=decision.analyze(s);return {id:s.id,description:s.description,recommended:r.recommended,alerts:r.alerts,options:r.options.map(o=>({name:o.name,score:o.score,minBatteryFraction:o.minBatteryFraction,thermalViolations:o.thermalViolations,safeCheckpoints:o.safeCheckpoints,finalBatteryWh:o.finalBatteryWh}))}});
+ const names=['STANDARD','POWER_SAVING','SURVIVAL'];
+ const ranked=names.map(name=>{const entries=results.map(r=>r.options.find(o=>o.name===name));const worstBattery=Math.min(...entries.map(o=>o.minBatteryFraction));const worstScore=Math.min(...entries.map(o=>o.score));const thermalWarnings=entries.reduce((s,o)=>s+o.thermalViolations,0);const safeCheckpoints=entries.reduce((s,o)=>s+o.safeCheckpoints,0);return {name,worstBatteryFraction:worstBattery,worstScore,thermalWarnings,safeCheckpoints,robustScore:worstScore-thermalWarnings-safeCheckpoints}}).sort((a,b)=>b.robustScore-a.robustScore||b.worstBatteryFraction-a.worstBatteryFraction);
+ const alerts=[];if(ranked[0].worstBatteryFraction<.15)alerts.push('CRITICAL: battery may fall below 15% in a stress scenario');if(ranked[0].thermalWarnings)alerts.push('THERMAL: operating bounds violated in at least one scenario');if(ranked[0].safeCheckpoints)alerts.push('SAFE: emergency checkpoints predicted');if(!alerts.length)alerts.push('No modeled critical conditions in the four tested scenarios');
+ return {recommended:ranked[0].name,ranked,scenarios:results,alerts,assumptions:'Four deterministic what-if scenarios; not statistical probabilities or learned AI. Robust ranking uses worst-case heuristic scores. Simulated conditions only.',inputs:baseline};
+}
+root.casAdaptiveIntelligenceV631246={forecast};if(typeof module!=='undefined'&&module.exports)module.exports=root.casAdaptiveIntelligenceV631246;
+if(typeof document!=='undefined'){
+ const el=id=>document.getElementById(id),btn=el('casAdaptiveRun');if(btn)btn.addEventListener('click',()=>{try{const r=forecast({hours:Number(el('casAdaptiveHours').value),initialWh:Number(el('casAdaptiveBattery').value),solarW:Number(el('casAdaptiveSolar').value),ambientC:Number(el('casAdaptiveAmbient').value),signalQuality:Number(el('casAdaptiveSignal').value)});el('casAdaptiveOutput').textContent='ROBUST RECOMMENDATION: '+r.recommended+'\n\n'+r.alerts.join('\n')+'\n\nRANKING\n'+r.ranked.map(o=>o.name+': robust score '+o.robustScore+', worst battery '+(o.worstBatteryFraction*100).toFixed(1)+'%, thermal violations '+o.thermalWarnings+', SAFE checkpoints '+o.safeCheckpoints).join('\n')+'\n\nSCENARIOS\n'+r.scenarios.map(s=>s.id+': '+s.description+'; preferred '+s.recommended).join('\n')+'\n\n'+r.assumptions;
+ try{const key='cas-v631-2-46-history',old=JSON.parse(localStorage.getItem(key)||'[]');if(Array.isArray(old)){old.push({time:new Date().toISOString(),inputs:r.inputs,recommended:r.recommended,alerts:r.alerts});localStorage.setItem(key,JSON.stringify(old.slice(-20)));}}catch(_){/* storage unavailable in private/file mode */}
+ }catch(e){el('casAdaptiveOutput').textContent='Error: '+e.message}});
+ const hist=el('casAdaptiveHistory');if(hist)hist.addEventListener('click',()=>{try{const a=JSON.parse(localStorage.getItem('cas-v631-2-46-history')||'[]');el('casAdaptiveOutput').textContent=Array.isArray(a)&&a.length?a.map(x=>x.time+' — '+x.recommended+' — '+x.alerts.join('; ')).join('\n'):'No saved local forecasts';}catch(e){el('casAdaptiveOutput').textContent='Local history unavailable'}});
+}
+})(typeof globalThis!=='undefined'?globalThis:this);
