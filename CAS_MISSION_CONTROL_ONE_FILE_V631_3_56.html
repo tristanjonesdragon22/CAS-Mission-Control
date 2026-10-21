@@ -1,0 +1,346 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#101d32"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="CAS OneBox"><title>CAS Universal One-Box Mission Simulator · V631.3.56 Adaptive Mission Execution Foundation Edition</title><style>body{background:#0b1425;color:#e9f3ff;font:16px system-ui;margin:0}header,main{max-width:860px;margin:auto;padding:16px}h1{font-size:clamp(23px,4vw,34px);margin-bottom:6px}p,small{color:#c2d4ec}textarea,select{box-sizing:border-box;width:100%;background:#f7fbff;color:#17253b;border:2px solid #58769c;border-radius:12px;padding:14px;font:inherit}textarea{min-height:145px;resize:vertical}button,.link{font:inherit;display:inline-block;border:0;border-radius:10px;background:#54baff;color:#071b31;padding:13px 18px;min-height:44px;margin:7px 7px 7px 0;cursor:pointer;text-decoration:none;font-weight:650}section{background:#172941;border:1px solid #2e4667;border-radius:16px;padding:18px;margin:16px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b192c;padding:15px;border-radius:10px;line-height:1.5}.task{display:flex;align-items:flex-start;gap:10px;padding:11px;border-bottom:1px solid #38506e}.task input{width:22px;height:22px;flex:none}article{border-top:1px solid #38506e;padding:8px}a{color:#8bd8ff}.muted{font-size:14px}#result{min-height:85px}@media(max-width:600px){header,main{padding:11px}section{padding:13px}button{width:100%}}</style></head><body><header><h1>CAS · Universal Mission Simulator</h1><p>One input for calculations, parameterized engineering simulations, comparisons, and guided projects · V631.3.56 Adaptive Mission Execution Foundation Edition</p></header><main><section><label for="prompt"><strong>Describe what you want to do</strong></label><textarea id="prompt" placeholder="Example: Optimize a 150 kg Mars rover solar panel for 90 days, design a Mars rover, simulate a projectile at speed 20 m/s angle 45 degrees, calculate (12+3)*4, or a 10 kg vehicle pushed with 20 newtons for 10 seconds"></textarea><button id="run">Run / Create Mission</button><p class="muted">Type “next step”, “status”, or a math expression. Try “refine mission for a 150 kg Mars rover travel 10 km for 90 days” or “optimize rocket dry mass 500 kg isp 300 s target delta-v 2000 m/s”. Offline adaptive refinement is available for supported rover missions. No general-purpose AI model or secure AI backend is included; unsupported requests become guided plans.</p><button id="selftest" type="button">Check app health</button><small id="health" role="status"></small><h2>Result</h2><div id="visual" aria-live="polite"></div><button id="report" type="button">Download calculation report</button><pre id="result" aria-live="polite">Ready. Enter a request above.</pre></section><section><h2>Current mission</h2><select id="missions" aria-label="Select mission"></select><div id="tasks"></div></section><section><h2>Save and restore</h2><button id="export">Export backup</button><label class="link" for="import">Import backup</label><input id="import" type="file" accept="application/json,.json" hidden><button id="clear">Clear local projects</button><p class="muted">Data is stored in this browser. Export backups regularly; clearing browser storage can erase it.</p></section><details><summary>Optional older online workspaces (only if uploaded)</summary><p>Some tools require separate parameters or Windows/Python and may not work in iPad Safari.</p><p><a href="UNIFIED_MISSION_OS_V631_3_47.html">Previous unified Mission OS</a> · <a href="ENGINEERING_LAB_V631_3_42.html">Engineering lab</a> · <a href="RESEARCH_KNOWLEDGE_V631_3_41.html">Research</a> · <a href="SOFTWARE_ENGINEERING_V631_3_46.html">Software</a></p></details><details><summary>Recent activity</summary><div id="history"></div></details><p class="muted">This standalone file has no required external files. Optimization and time-step simulation use simplified deterministic models, not verified hardware design. Rover simulation estimates are not detailed terrain or hardware validation. Offline calculations and plans are not safety certifications. Internet research and general AI reasoning are not available in this offline build.</p></main><script>(function(g){'use strict';
+const KEY='cas.onebox.631.3.48';let state={missions:[],selected:null,history:[]};let lastReport="";
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}function load(){try{let x=JSON.parse(localStorage.getItem(KEY)||'null');if(x&&Array.isArray(x.missions)&&Array.isArray(x.history))state=x}catch(e){}}
+function escape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function math(src){let s=src.replace(/π/g,'pi').replace(/×/g,'*').replace(/÷/g,'/').replace(/\^/g,'**').replace(/\s/g,'');let i=0;function eat(c){if(s.slice(i,i+c.length)===c){i+=c.length;return true}return false}function number(){if(eat('(')){let v=expr();if(!eat(')'))throw Error('Missing closing parenthesis');return v}if(eat('+'))return number();if(eat('-'))return -number();let m=/^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i.exec(s.slice(i));if(m){i+=m[0].length;return Number(m[0])}let n=/^[a-z]+/i.exec(s.slice(i));if(n){i+=n[0].length;let name=n[0].toLowerCase();if(name==='pi')return Math.PI;if(name==='e')return Math.E;if(!eat('('))throw Error('Use '+name+'(value)');let v=expr();if(!eat(')'))throw Error('Missing closing parenthesis');let f={sqrt:Math.sqrt,sin:Math.sin,cos:Math.cos,tan:Math.tan,abs:Math.abs,ln:Math.log,log:Math.log10,exp:Math.exp}[name];if(!f)throw Error('Unsupported function '+name);return f(v)}throw Error('Expected number at position '+(i+1))}function power(){let v=number();if(eat('**'))v=Math.pow(v,power());return v}function term(){let v=power();while(true){if(eat('*'))v*=power();else if(eat('/'))v/=power();else break}return v}function expr(){let v=term();while(true){if(eat('+'))v+=term();else if(eat('-'))v-=term();else break}return v}let v=expr();if(i!==s.length)throw Error('Unexpected expression near '+s.slice(i));if(!Number.isFinite(v))throw Error('Result is not finite');return v}
+function pick(s){if(/\b(software|app|website|code|program)\b/i.test(s))return 'software';if(/\b(research|study|experiment|hypothesis)\b/i.test(s))return 'research';if(/\b(robot|vehicle|rocket|mars|space|engineering|design|build|machine|satellite)\b/i.test(s))return 'engineering';return 'general'}
+const plans={engineering:['Define performance requirements and operating conditions','Identify physical models and input parameters','Document subsystems and candidate designs','Run supported calculations and simulations','Check assumptions, units and acceptance criteria','Plan a prototype and record test evidence','Review results and revise the design'],software:['Define users and acceptance criteria','Design modules and data flow','Create a small working prototype','Run functional and edge-case tests','Review security and reliability','Package, document and verify delivery'],research:['State a testable research question','Collect sources and label uncertainty','Design controlled experiments','Record observations and calculations','Analyze findings and limitations','Report reproducible conclusions'],general:['Define objective and success criteria','List resources, constraints and unknowns','Plan achievable milestones','Perform first step and record evidence','Review progress and revise plan','Document completion criteria']};
+function newMission(text){let kind=pick(text);let m={id:'m'+Date.now(),description:text,kind,tasks:plans[kind].map((title,i)=>({title,done:false,notes:'',id:i+1})),created:new Date().toISOString()};state.missions.unshift(m);state.selected=m.id;save();return m}
+function selected(){return state.missions.find(x=>x.id===state.selected)||state.missions[0]||null}
+function taskView(){let m=selected();if(!m)return '<p>No mission yet. Describe a project above to begin.</p>';let done=m.tasks.filter(t=>t.done).length;return '<h3>'+escape(m.description)+'</h3><p>'+escape(m.kind)+' mission · '+done+'/'+m.tasks.length+' steps completed</p>'+m.tasks.map(t=>'<label class="task"><input type="checkbox" data-task="'+t.id+'" '+(t.done?'checked':'')+'><span>'+t.id+'. '+escape(t.title)+'</span></label>').join('')}
+function physics(s){let mass=/\b(?:mass|weigh(?:ing|s)?|weight)\s*(?:of|is|=|:)??\s*(\d+(?:\.\d+)?)\s*(?:kg|kilograms?)\b/i.exec(s)||/\b(\d+(?:\.\d+)?)\s*(?:kg|kilograms?)\b/i.exec(s);let force=/\b(?:force|thrust)\s*(?:of|is|=|:)??\s*(\d+(?:\.\d+)?)\s*(?:n|newtons?)\b/i.exec(s)||/\b(\d+(?:\.\d+)?)\s*(?:newtons?)\b/i.exec(s);let duration=/\b(?:for|over|during)\s*(\d+(?:\.\d+)?)\s*(?:s|sec|seconds?)\b/i.exec(s);if(!mass||!force)return null;let m=Number(mass[1]),f=Number(force[1]);if(m<=0)throw Error('Mass must be greater than zero');let a=f/m,txt='**Idealized Newtonian motion**\nMass: '+m+' kg\nForce: '+f+' N\nAcceleration: '+a.toPrecision(8)+' m/s²';if(duration){let t=Number(duration[1]);txt+='\nAssuming initial rest and no resistance:\nTime: '+t+' s\nFinal speed: '+(a*t).toPrecision(8)+' m/s\nDistance: '+(.5*a*t*t).toPrecision(8)+' m\nKinetic energy: '+(.5*m*(a*t)**2).toPrecision(8)+' J'}txt+='\nThis is a simplified model, not a validated real-world simulation.';return txt}
+
+function extract(s,patterns,defaultValue){for(let p of patterns){let m=p.exec(s);if(m)return Number(m[1])}return defaultValue}
+function rover(s){
+if(!/\b(rover|robotic vehicle|mars vehicle|exploration vehicle)\b/i.test(s))return null;
+let mass=extract(s,[/(?:weigh(?:s|ing)?|mass(?: of| is|:|=)?)\s*(\d+(?:\.\d+)?)\s*kg/i,/(\d+(?:\.\d+)?)\s*kg/i],150);
+let distance=extract(s,[/(?:travel|distance|range|cover)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*km/i,/(\d+(?:\.\d+)?)\s*km/i],10);
+let days=extract(s,[/(?:operate|operation|mission|for)\s*(?:for|duration|of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*days?/i,/(\d+(?:\.\d+)?)\s*days?/i],90);
+let speed=extract(s,[/(?:speed|velocity)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*m\/?s/i],0.1);
+let irradiance=extract(s,[/(?:irradiance|sunlight)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*w\/?m2/i],400);
+let area=extract(s,[/(?:panel area|solar area)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*m2/i],2);
+let efficiency=extract(s,[/(?:panel efficiency|solar efficiency)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*%/i],22)/100;
+let rolling=extract(s,[/(?:rolling coefficient|rolling resistance coefficient)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)/i],0.15);
+let hours=extract(s,[/(?:sun hours|sunlight hours)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*(?:hours?|h)/i],6);
+let electronics=extract(s,[/(?:electronics|idle power|base load)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*w/i],25);
+let driveEfficiency=0.7,g=3.71;
+if([mass,distance,days,speed,irradiance,area,efficiency,rolling,hours,electronics].some(v=>!Number.isFinite(v))||mass<=0||distance<=0||days<=0||speed<=0||area<=0||irradiance<0||hours<0||hours>24||efficiency<=0||efficiency>1||rolling<0||electronics<0)throw Error('Invalid rover parameters. Check positive mass, speed, range and panel area; sunlight hours 0–24; efficiency 0–100%.');
+let force=rolling*mass*g,traction=force*speed/driveEfficiency,solar=irradiance*area*efficiency,travelHours=distance*1000/speed/3600,driveWh=traction*travelHours,baseWh=electronics*24*days,energy=driveWh+baseWh,harvest=solar*hours*days,margin=harvest-energy,requiredArea=energy/(irradiance*efficiency*hours*days||1);
+let variants=[0.5,1,1.5,2].map(k=>({area:area*k,solarWh:harvest*k,marginWh:harvest*k-energy}));
+let fmt=v=>Number(v.toFixed(2)).toLocaleString('en-US');
+let out='ROVER DESIGN — computed first-order engineering estimate\n'+'Mass '+fmt(mass)+' kg | Range '+fmt(distance)+' km | Duration '+fmt(days)+' days\n'+'Mars gravity '+g+' m/s² | Speed '+speed+' m/s\n'+'Rolling force '+fmt(force)+' N | Drive power '+fmt(traction)+' W\n'+'Drive time '+fmt(travelHours)+' hours | Driving energy '+fmt(driveWh)+' Wh\n'+'Electronics '+fmt(electronics)+' W continuous | Electronics energy '+fmt(baseWh)+' Wh\n'+'Total estimated mission energy '+fmt(energy)+' Wh\n'+'Solar peak power '+fmt(solar)+' W | Estimated total generation '+fmt(harvest)+' Wh\n'+'Energy margin '+fmt(margin)+' Wh ('+(margin>=0?'POSITIVE':'NEGATIVE')+')\n'+'Estimated minimum panel area '+fmt(requiredArea)+' m² (before reserve margin)\n\n'+'PANEL AREA DESIGN COMPARISON\n'+variants.map(v=>fmt(v.area)+' m²: generation '+fmt(v.solarWh)+' Wh; margin '+fmt(v.marginWh)+' Wh').join('\n')+'\n\nASSUMPTIONS: flat terrain; constant speed; rolling resistance '+rolling+'; drivetrain efficiency 70%; irradiance '+irradiance+' W/m² for '+hours+' h/day; panel efficiency '+(efficiency*100)+'%; no night storage losses, weather, dust, slope, thermal load, comms bursts, battery degradation or hardware mass growth. Solar power must also be stored for dark hours. These are screening estimates, NOT a verified Mars rover design.';
+let chart='<h3>Energy comparison (Wh)</h3><svg viewBox="0 0 680 235" style="width:100%;max-width:680px;background:#0b192c;border-radius:12px" role="img" aria-label="Solar energy generation compared to estimated demand">';let max=Math.max(energy,...variants.map(v=>v.solarWh),1);variants.forEach((v,i)=>{let y=20+i*50;chart+='<text x="8" y="'+(y+17)+'" fill="#fff" font-size="14">'+fmt(v.area)+' m²</text><rect x="100" y="'+y+'" width="'+(520*v.solarWh/max)+'" height="17" fill="#5ac7ff"/><rect x="100" y="'+(y+20)+'" width="'+(520*energy/max)+'" height="8" fill="#ffc078"/>'});chart+='<text x="105" y="226" fill="#fff" font-size="13">Blue = solar generation; orange = energy required</text></svg>';
+return {text:out,chart,data:{mass,distance,days,speed,force,traction,travelHours,driveWh,baseWh,energy,harvest,margin,requiredArea,variants}};
+}
+
+
+// V631.3.52 deterministic mission execution extensions. Units are SI unless specified.
+function numParam(s,keys,unit,fallback){for(const key of keys){let re=new RegExp('(?:'+key+')\\s*(?:of|is|=|:)?\\s*([0-9]+(?:\\.[0-9]+)?)\\s*(?:'+unit+')?','i');let m=re.exec(s);if(m)return +m[1]}return fallback}
+function fixed(x,d=3){return Number(x.toFixed(d)).toLocaleString('en-US')}
+function scientificMission(s){
+ const q=s.toLowerCase();
+ if(/\b(orbit|orbital|satellite|hohmann|transfer orbit)\b/.test(q)){
+  let body=/\bmars\b/.test(q)?'Mars':'Earth',mu=body==='Mars'?4.282837e13:3.986004418e14,R=body==='Mars'?3389500:6371000;
+  let alt=numParam(s,['altitude','height','orbit'],'km',400),to=numParam(s,['target altitude','final altitude','destination altitude'],'km',NaN);
+  let m=s.match(/(?:from|between)\s*(\d+(?:\.\d+)?)\s*km\s*(?:to|and)\s*(\d+(?:\.\d+)?)\s*km/i);if(m){alt=+m[1];to=+m[2]}
+  if(!Number.isFinite(alt)||alt<0||alt>1e7||Number.isFinite(to)&& (to<0||to>1e7))throw Error('Orbit altitudes must be nonnegative and below 10 million km.');
+  let r1=R+alt*1000,v1=Math.sqrt(mu/r1),period=2*Math.PI*Math.sqrt(r1**3/mu);
+  let out='ORBITAL MODEL — '+body+' (two-body circular orbit)\nInitial altitude: '+fixed(alt)+' km\nCircular orbital speed: '+fixed(v1)+' m/s\nOrbital period: '+fixed(period/60)+' minutes';
+  let data={body,altitudeKm:alt,circularSpeedMs:v1,periodSeconds:period};
+  if(Number.isFinite(to)){let r2=R+to*1000,a=(r1+r2)/2,v2=Math.sqrt(mu/r2),dv1=Math.abs(v1*(Math.sqrt(2*r2/(r1+r2))-1)),dv2=Math.abs(v2*(1-Math.sqrt(2*r1/(r1+r2)))),t=Math.PI*Math.sqrt(a**3/mu);Object.assign(data,{targetAltitudeKm:to,deltaV1:dv1,deltaV2:dv2,totalDeltaV:dv1+dv2,transferSeconds:t});out+='\nTarget altitude: '+fixed(to)+' km\nHohmann transfer Δv: '+fixed(dv1+dv2)+' m/s (burns '+fixed(dv1)+' + '+fixed(dv2)+')\nTransfer time: '+fixed(t/3600)+' hours'}
+  out+='\nASSUMPTIONS: spherical central body, impulsive burns, no atmosphere, perturbations, inclination changes, or launch costs. Not a flight-ready trajectory.';return {text:out,data};
+ }
+ if(/\b(rocket|propulsion|delta[- ]?v|fuel|propellant)\b/.test(q)&&/\b(isp|specific impulse|dry mass|fuel mass|propellant|delta[- ]?v)\b/.test(q)){
+  let dry=numParam(s,['dry mass'],'kg',500),fuel=numParam(s,['fuel mass','propellant mass','fuel'],'kg',200),isp=numParam(s,['isp','specific impulse'],'s',300);
+  if(dry<=0||fuel<0||isp<=0)throw Error('Dry mass and Isp must be positive; fuel cannot be negative.');let dv=isp*9.80665*Math.log((dry+fuel)/dry),data={dryMassKg:dry,propellantKg:fuel,ispSeconds:isp,deltaVMs:dv};return {text:'ROCKET EQUATION — ideal single-stage estimate\nDry mass: '+fixed(dry)+' kg\nPropellant: '+fixed(fuel)+' kg\nSpecific impulse: '+fixed(isp)+' s\nIdeal Δv: '+fixed(dv)+' m/s\nASSUMPTIONS: constant Isp, ideal vacuum, no gravity or drag losses, no reserves. Not a flight-ready propulsion design.',data};
+ }
+ if(/\b(projectile|ballistic|trajectory|launch angle)\b/.test(q)){
+  let v=numParam(s,['speed','velocity','initial speed'],'m\\/?s',20),angle=numParam(s,['angle','launch angle'],'degrees?|deg',45),gravity=numParam(s,['gravity'],'m\\/?s',9.81);
+  if(v<0||angle<0||angle>90||gravity<=0)throw Error('Use nonnegative speed, angle 0–90°, and positive gravity.');let a=angle*Math.PI/180,t=2*v*Math.sin(a)/gravity,range=v*Math.cos(a)*t,height=(v*Math.sin(a))**2/(2*gravity),points=[];for(let i=0;i<=30;i++){let x=v*Math.cos(a)*t*i/30,y=v*Math.sin(a)*t*i/30-.5*gravity*(t*i/30)**2;points.push({x,y:Math.max(0,y)})}
+  return {text:'PROJECTILE SIMULATION — no air resistance\nInitial speed: '+fixed(v)+' m/s\nAngle: '+fixed(angle)+' degrees\nGravity: '+fixed(gravity)+' m/s²\nFlight time: '+fixed(t)+' s\nHorizontal range: '+fixed(range)+' m\nPeak height: '+fixed(height)+' m\n31 computed trajectory points.\nASSUMPTIONS: level ground, no atmosphere, constant gravity.',data:{v,angle,gravity,t,range,height,points},chart:lineChart(points,'Projectile height versus horizontal distance')};
+ }
+ if(/\b(battery|solar|energy budget)\b/.test(q)&&/\b(watt|wh|kwh|solar|panel|battery)\b/.test(q)){
+  let watts=numParam(s,['load','power','consumption'],'w',50),hours=numParam(s,['runtime','duration','for'],'hours?|h',24),capacity=numParam(s,['battery','capacity'],'wh',1000),solarW=numParam(s,['solar power','solar panel','panel'],'w',0),sun=numParam(s,['sun hours','sunlight hours'],'hours?|h',5);
+  if([watts,hours,capacity,solarW,sun].some(x=>x<0)||hours>1e6||sun>24)throw Error('Parameters must be nonnegative; sun hours must be at most 24.');let demand=watts*hours,generation=solarW*sun*hours/24,margin=capacity+generation-demand;return {text:'ENERGY BUDGET — simplified\nLoad: '+fixed(watts)+' W\nDuration: '+fixed(hours)+' h\nEnergy demand: '+fixed(demand)+' Wh\nBattery capacity: '+fixed(capacity)+' Wh\nSolar generation estimate: '+fixed(generation)+' Wh\nEnergy balance: '+fixed(margin)+' Wh\nASSUMPTIONS: no conversion, charging, or storage losses; fixed power and sun-hours.',data:{watts,hours,capacity,solarW,sun,demand,generation,margin}};
+ }
+ return null;
+}
+function lineChart(points,label){let maxX=Math.max(...points.map(p=>p.x),1),maxY=Math.max(...points.map(p=>p.y),1),coords=points.map(p=>(40+590*p.x/maxX).toFixed(1)+','+(190-160*p.y/maxY).toFixed(1)).join(' ');return '<svg viewBox="0 0 680 225" style="width:100%;max-width:680px;background:#0b192c;border-radius:12px" role="img" aria-label="'+label+'"><line x1="40" y1="190" x2="640" y2="190" stroke="white"/><line x1="40" y1="20" x2="40" y2="190" stroke="white"/><polyline points="'+coords+'" fill="none" stroke="#5ac7ff" stroke-width="3"/><text x="48" y="215" fill="white" font-size="14">'+label+'</text></svg>'}
+
+
+// V631.3.56 constrained candidate search; deterministic, local, transparent assumptions.
+function optimizationMission(s){
+ if(!/\b(optimi[sz]e|optimization|best design|compare designs|find best|minimum panel|minimum fuel)\b/i.test(s))return null;
+ const fmt=v=>Number(v.toFixed(3)).toLocaleString('en-US');
+ if(/\b(rover|mars vehicle|exploration vehicle|solar panel|solar-powered vehicle)\b/i.test(s)){
+  const mass=extract(s,[/(?:weigh(?:s|ing)?|mass(?: of| is|:|=)?)\s*(\d+(?:\.\d+)?)\s*kg/i,/(\d+(?:\.\d+)?)\s*kg/i],150);
+  const distance=extract(s,[/(?:travel|distance|range|cover)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*km/i,/(\d+(?:\.\d+)?)\s*km/i],10);
+  const days=extract(s,[/(?:operate|operation|mission|for)\s*(?:for|duration|of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*days?/i,/(\d+(?:\.\d+)?)\s*days?/i],90);
+  const sun=extract(s,[/(?:sun hours|sunlight hours)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*(?:hours?|h)/i],6);
+  const irradiance=extract(s,[/(?:irradiance|sunlight)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*w\/?m2/i],400);
+  const efficiency=extract(s,[/(?:panel efficiency|solar efficiency)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*%/i],22)/100;
+  const electronics=extract(s,[/(?:electronics|idle power|base load)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*w/i],25);
+  const rolling=extract(s,[/(?:rolling coefficient|rolling resistance coefficient)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)/i],0.15);
+  const reserve=extract(s,[/(?:reserve|safety margin)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*%/i],25)/100;
+  const minArea=extract(s,[/(?:minimum|min)\s*(?:panel )?area\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*m2/i],0.5);
+  const maxArea=extract(s,[/(?:maximum|max)\s*(?:panel )?area\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*m2/i],12);
+  const step=extract(s,[/(?:area step|increment)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*m2/i],0.25);
+  const batteryHours=extract(s,[/(?:night storage|battery autonomy)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*(?:hours?|h)/i],24-sun);
+  const maxBattery=extract(s,[/(?:maximum|max)\s*battery\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*wh/i],Infinity);
+  if([mass,distance,days,sun,irradiance,efficiency,electronics,rolling,reserve,minArea,maxArea,step,batteryHours].some(v=>!Number.isFinite(v))||mass<=0||distance<=0||days<=0||days>1e5||sun<=0||sun>24||irradiance<=0||efficiency<=0||efficiency>1||electronics<0||rolling<0||reserve<0||reserve>3||minArea<=0||maxArea<minArea||maxArea>1000||step<=0||batteryHours<0||batteryHours>240||maxBattery<0)throw Error('Invalid rover constraints. Use positive mass/range/days, sun hours 0–24, reserve 0–300%, valid panel area bounds.');
+  const driveWh=rolling*mass*3.71*distance*1000/(0.7*3600);
+  const loadWh=electronics*24*days+driveWh;
+  const requiredWh=loadWh*(1+reserve);
+  const storageWh=electronics*batteryHours*(1+reserve);
+  const candidates=[];
+  const count=Math.min(500,Math.floor((maxArea-minArea)/step+1e-8)+1);
+  for(let i=0;i<count;i++){
+   const area=+(minArea+i*step).toFixed(8),generationWh=irradiance*efficiency*sun*days*area;
+   const feasible=generationWh>=requiredWh-1e-8&&storageWh<=maxBattery;
+   candidates.push({areaM2:area,generationWh,requiredWh,marginWh:generationWh-requiredWh,storageWh,feasible});
+  }
+  let best=candidates.find(x=>x.feasible)||null;
+  let ranked=candidates.filter(x=>x.feasible).slice(0,5);
+  let text='ROVER ENGINEERING OPTIMIZATION — deterministic candidate search\n'+
+    'Goal: smallest solar-panel area meeting estimated mission energy demand and battery autonomy.\n'+
+    'Mass '+fmt(mass)+' kg; distance '+fmt(distance)+' km; mission '+fmt(days)+' days.\n'+
+    'Driving energy '+fmt(driveWh)+' Wh; total nominal demand '+fmt(loadWh)+' Wh.\n'+
+    'Required energy with '+fmt(reserve*100)+'% reserve: '+fmt(requiredWh)+' Wh.\n'+
+    'Minimum ideal battery storage for '+fmt(batteryHours)+' h autonomy: '+fmt(storageWh)+' Wh.\n'+
+    'Evaluated '+candidates.length+' panel areas from '+fmt(minArea)+' to '+fmt(maxArea)+' m² in '+fmt(step)+' m² increments.\n';
+  if(best){text+='BEST FEASIBLE CANDIDATE: '+fmt(best.areaM2)+' m² panel; '+fmt(best.generationWh)+' Wh generation; '+fmt(best.marginWh)+' Wh energy margin.\n';text+='Next feasible candidates:\n'+ranked.map(x=>fmt(x.areaM2)+' m²: margin '+fmt(x.marginWh)+' Wh').join('\n');}
+  else text+='NO FEASIBLE CANDIDATE within supplied bounds. Increase panel area, sunlight, or efficiency; reduce demand or reserve, or relax battery limit.\n';
+  text+='\nASSUMPTIONS: flat terrain, fixed irradiance and electronics load, no dust, storms, conversion/storage losses, aging, slope, thermal controls, or battery cycling. Storage is estimated separately and does not guarantee hour-by-hour energy feasibility. Not a verified rover design.';
+  let shown=candidates.filter((_,i)=>i%Math.max(1,Math.ceil(candidates.length/50))===0).map(x=>({x:x.areaM2,y:x.generationWh}));
+  return {text,data:{kind:'rover-optimization',inputs:{mass,distance,days,sun,irradiance,efficiency,electronics,rolling,reserve,minArea,maxArea,step,batteryHours,maxBattery},driveWh,loadWh,requiredWh,storageWh,best,candidates},chart:lineChart(shown,'Solar generation by panel area (Wh vs m²)')};
+ }
+ if(/\b(rocket|propulsion|propellant|fuel|delta[- ]?v)\b/i.test(s)){
+  const dry=numParam(s,['dry mass'],'kg',500),isp=numParam(s,['isp','specific impulse'],'s',300);
+  const target=extract(s,[/(?:target|require(?:d)?|desired)\s*(?:delta[- ]?v|dv|velocity change)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*m\/?s/i,/(\d+(?:\.\d+)?)\s*m\/?s\s*(?:delta[- ]?v|dv)/i],2000);
+  const maxFuel=extract(s,[/(?:maximum|max)\s*(?:fuel|propellant)\s*(?:mass)?\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*kg/i],2000);
+  const fuelStep=extract(s,[/(?:fuel step|increment)\s*(?:of|is|:|=)?\s*(\d+(?:\.\d+)?)\s*kg/i],10);
+  if([dry,isp,target,maxFuel,fuelStep].some(v=>!Number.isFinite(v))||dry<=0||isp<=0||target<0||maxFuel<0||fuelStep<=0||maxFuel>1e7)throw Error('Invalid rocket parameters.');
+  const exact=dry*Math.expm1(target/(isp*9.80665));
+  const best=exact<=maxFuel?{fuelKg:exact,deltaVMs:target}:null;
+  const candidates=[];for(let i=0;i<=Math.min(500,Math.floor(maxFuel/fuelStep));i++){let fuelKg=i*fuelStep;candidates.push({fuelKg,deltaVMs:isp*9.80665*Math.log1p(fuelKg/dry)});}
+  let text='ROCKET PROPELLANT OPTIMIZATION — ideal rocket equation\nTarget Δv: '+fmt(target)+' m/s; dry mass '+fmt(dry)+' kg; Isp '+fmt(isp)+' s.\nExact ideal minimum propellant: '+fmt(exact)+' kg.\nMaximum allowed propellant: '+fmt(maxFuel)+' kg.\n'+(best?'FEASIBLE within the specified fuel limit.':'NOT FEASIBLE within the specified fuel limit.')+'\n'+
+    'Sample candidates:\n'+candidates.filter((_,i)=>i%Math.max(1,Math.floor(candidates.length/6))===0).slice(0,7).map(x=>fmt(x.fuelKg)+' kg → '+fmt(x.deltaVMs)+' m/s').join('\n')+'\nASSUMPTIONS: ideal single-stage vacuum rocket, constant Isp, no gravity/drag losses or reserve, fixed dry mass. Not flight-ready.';
+  return {text,data:{kind:'rocket-optimization',dry,isp,target,maxFuel,fuelStep,exact,best,candidates},chart:lineChart(candidates.map(x=>({x:x.fuelKg,y:x.deltaVMs})),'Ideal Δv by propellant mass')};
+ }
+ return null;
+}
+
+
+function integratedMission(s){
+ if(!/\b(simulate and optimi[sz]e|optimi[sz]e and simulate|design simulation|simulate design|integrated simulation|simulate and improve)\b/i.test(s))return null;
+ if(!/\b(rover|mars vehicle|robotic vehicle|solar panel)\b/i.test(s))return null;
+ const mass=extract(s,[/(\d+(?:\.\d+)?)\s*kg/i],150);
+ const distance=extract(s,[/(?:travel|distance|range|cover)\s*(\d+(?:\.\d+)?)\s*km/i,/(\d+(?:\.\d+)?)\s*km/i],10);
+ const days=extract(s,[/(\d+(?:\.\d+)?)\s*days?/i],90);
+ const sun=extract(s,[/(?:sun hours|sunlight hours)\s*(\d+(?:\.\d+)?)\s*(?:h|hours?)/i],6);
+ const electronics=extract(s,[/(?:electronics|base load)\s*(\d+(?:\.\d+)?)\s*w/i],25);
+ const irradiance=extract(s,[/irradiance\s*(\d+(?:\.\d+)?)\s*w/i],400);
+ const efficiency=extract(s,[/(?:panel efficiency|solar efficiency)\s*(\d+(?:\.\d+)?)\s*%/i],22)/100;
+ const rolling=extract(s,[/rolling (?:coefficient|resistance)\s*(\d+(?:\.\d+)?)/i],0.15);
+ const reserve=extract(s,[/reserve\s*(\d+(?:\.\d+)?)\s*%/i],25)/100;
+ const maxArea=extract(s,[/max(?:imum)? (?:panel )?area\s*(\d+(?:\.\d+)?)\s*m2/i],12);
+ const maxBattery=extract(s,[/max(?:imum)? battery\s*(\d+(?:\.\d+)?)\s*wh/i],4000);
+ const dust=extract(s,[/dust loss\s*(\d+(?:\.\d+)?)\s*%/i],0)/100;
+ const weather=extract(s,[/storm (?:every|interval)\s*(\d+(?:\.\d+)?)\s*days?/i],0);
+ if([mass,distance,days,sun,electronics,irradiance,efficiency,rolling,reserve,maxArea,maxBattery,dust,weather].some(v=>!Number.isFinite(v))||
+ mass<=0||distance<=0||days<=0||days>365||sun<=0||sun>24||electronics<0||irradiance<=0||efficiency<=0||efficiency>1||
+ rolling<0||reserve<0||reserve>3||maxArea<=0||maxArea>100||maxBattery<=0||maxBattery>1e7||dust<0||dust>=1||weather<0)
+ throw Error('Invalid simulation inputs; check positive mass, range, days (max 365), sunlight, battery, area and efficiencies.');
+ // Hourly energy balance, with an evenly distributed drive schedule and a rectangular sunlight window.
+ // Energy delivered to battery incurs 90% charge efficiency; discharge incurs 90% efficiency.
+ const driveWh=rolling*mass*3.71*distance*1000/(0.7*3600);
+ const driveW=driveWh/(days*24);
+ const loadW=electronics+driveW;
+ const candidates=[];
+ let best=null;
+ for(let a=0.5;a<=maxArea+1e-9;a+=0.5){
+  for(let b=250;b<=maxBattery+1e-9;b+=250){
+   const area=+a.toFixed(3),battery=+b.toFixed(3),usable=battery/(1+reserve);
+   let soc=usable,shortageWh=0,firstFailure=null,minSoc=soc,maxSoc=soc;
+   const daily=[];
+   for(let day=0;day<days;day++){
+    let dailyShort=0;
+    for(let hour=0;hour<24;hour++){
+     const sunny=hour>=9&&hour<9+sun;
+     const storm=weather>0&&day>0&&day%weather===0;
+     const solarW=sunny&&!storm?area*irradiance*efficiency*(1-dust):0;
+     const net=solarW-loadW;
+     if(net>=0)soc=Math.min(usable,soc+net*0.9);
+     else{
+      const needed=-net/0.9;
+      if(soc>=needed)soc-=needed;
+      else{dailyShort+=(needed-soc)*0.9;soc=0;if(firstFailure===null)firstFailure={day:day+1,hour};}
+     }
+     minSoc=Math.min(minSoc,soc);maxSoc=Math.max(maxSoc,soc);
+    }
+    shortageWh+=dailyShort;
+    daily.push({day:day+1,storedWh:+soc.toFixed(2),unservedWh:+dailyShort.toFixed(2)});
+   }
+   const feasible=shortageWh<1e-6;
+   const candidate={areaM2:area,batteryWh:battery,shortageWh:+shortageWh.toFixed(3),feasible,firstFailure,minStoredWh:+minSoc.toFixed(2)};
+   candidates.push(candidate);
+   // Rank by area first, then battery capacity. These are not economic or mass-optimal designs.
+   if(feasible&&(!best||area<best.areaM2||(area===best.areaM2&&battery<best.batteryWh)))
+    best={...candidate,daily};
+  }
+ }
+ if(!candidates.length)throw Error('Candidate limits too small: use maximum panel area >= 0.5 m2 and maximum battery >= 250 Wh.');
+ const baseline=candidates[0];
+ const fmt=v=>Number(v.toFixed(2)).toLocaleString('en-US');
+ const result='INTEGRATED ROVER DESIGN SIMULATION — V631.3.56\n'+
+  'Mass '+fmt(mass)+' kg; travel '+fmt(distance)+' km; '+days+' days.\n'+
+  'Continuous estimated load '+fmt(loadW)+' W (electronics '+fmt(electronics)+' W + average driving '+fmt(driveW)+' W).\n'+
+  'Simulated '+candidates.length+' panel/battery combinations at hourly resolution.\n'+
+  'Assumed sunlight '+sun+' h/day; irradiance '+irradiance+' W/m²; dust loss '+fmt(dust*100)+'%; reserve '+fmt(reserve*100)+'%.\n'+
+  (best?'BEST FEASIBLE GRID CANDIDATE: panel '+fmt(best.areaM2)+' m²; battery '+fmt(best.batteryWh)+' Wh; unserved energy '+fmt(best.shortageWh)+' Wh.\n':
+  'NO FEASIBLE DESIGN in the selected grid. Increase maximum panel area or battery, reduce demand, or change sunlight assumptions.\n')+
+  'Baseline ('+fmt(baseline.areaM2)+' m², '+fmt(baseline.batteryWh)+' Wh): '+fmt(baseline.shortageWh)+' Wh unserved'+
+  (baseline.firstFailure?', first shortfall day '+baseline.firstFailure.day+' hour '+baseline.firstFailure.hour:'')+'.\n'+
+  'MODEL: hourly charge/discharge with 90% efficiency each way; evenly distributed travel energy; constant solar flux during sunlight; optional periodic zero-sun storm days. Candidate grid uses 0.5 m² panel and 250 Wh battery increments. Results are estimates, NOT hardware validation; no thermal, slope, battery aging, mass/cost tradeoffs or true Martian illumination geometry.';
+ const points=best?best.daily.map(d=>({x:d.day,y:d.storedWh})):candidates.filter((_,i)=>i%Math.max(1,Math.ceil(candidates.length/60))===0).map((c,i)=>({x:i+1,y:c.shortageWh}));
+ return {text:result,data:{kind:'integrated-rover-hourly',inputs:{mass,distance,days,sun,electronics,irradiance,efficiency,rolling,reserve,maxArea,maxBattery,dust,weather},driveWh,loadW,best,baseline,candidateCount:candidates.length,candidates:candidates.slice(0,300),model:'hourly-battery-balance'},chart:lineChart(points,best?'Best design stored energy by day (Wh)':'Unserved energy across sampled candidates (Wh)')};
+}
+
+
+function executeMission(s){
+ if(!/\b(execute mission|run mission|mission workflow|full mission simulation|orchestrate mission|mission execution)\b/i.test(s))return null;
+ if(!/\b(rover|mars vehicle|robotic vehicle)\b/i.test(s))return null;
+ const mass=extract(s,[/(\d+(?:\.\d+)?)\s*kg/i],150);
+ const distance=extract(s,[/(?:travel|distance|range|cover)\s*(\d+(?:\.\d+)?)\s*km/i,/(\d+(?:\.\d+)?)\s*km/i],10);
+ const days=extract(s,[/(\d+(?:\.\d+)?)\s*days?/i],90);
+ const speed=extract(s,[/(?:speed|velocity)\s*(\d+(?:\.\d+)?)\s*m\/?s/i],0.1);
+ const slope=extract(s,[/(?:slope|incline)\s*(\d+(?:\.\d+)?)\s*degrees?/i],0);
+ const rolling=extract(s,[/rolling (?:coefficient|resistance)\s*(\d+(?:\.\d+)?)/i],0.15);
+ const motorEfficiency=extract(s,[/motor efficiency\s*(\d+(?:\.\d+)?)\s*%/i],70)/100;
+ if(!Number.isFinite(speed)||speed<=0||speed>100||!Number.isFinite(slope)||slope<0||slope>60||rolling<0||rolling>2||motorEfficiency<=0||motorEfficiency>1)throw Error('Invalid rover speed, slope, rolling resistance or motor efficiency.');
+ const gravity=3.71,theta=slope*Math.PI/180;
+ const rollingForce=mass*gravity*Math.cos(theta)*rolling;
+ const slopeForce=mass*gravity*Math.sin(theta);
+ const totalForce=rollingForce+slopeForce;
+ const motorPower=totalForce*speed/motorEfficiency;
+ const driveHours=distance*1000/speed/3600;
+ const drivingEnergyWh=totalForce*distance*1000/(3600*motorEfficiency);
+ const dailyDriveHours=driveHours/days;
+ if(!Number.isFinite(dailyDriveHours)||dailyDriveHours>24)throw Error('Travel goal requires '+dailyDriveHours.toFixed(2)+' driving hours per day, exceeding 24 hours. Increase mission days or driving speed.');
+ // Existing hourly energy engine assumes driving load averaged evenly across all hours.
+ // Convert the slope-aware drive energy to an equivalent rolling coefficient so both engines use the same work budget.
+ const equivalentRolling=totalForce/(mass*gravity)*(0.7/motorEfficiency);
+ const source='simulate and optimize '+mass+' kg Mars rover travel '+distance+' km for '+days+' days rolling resistance '+equivalentRolling.toFixed(9)+
+  (/(?:sun hours|sunlight hours)\s*\d/i.test(s)?' sun hours '+extract(s,[/(?:sun hours|sunlight hours)\s*(\d+(?:\.\d+)?)/i],6):'')+
+  (/(?:max(?:imum)? (?:panel )?area)\s*\d/i.test(s)?' max panel area '+extract(s,[/max(?:imum)? (?:panel )?area\s*(\d+(?:\.\d+)?)/i],12)+' m2':'')+
+  (/(?:max(?:imum)? battery)\s*\d/i.test(s)?' max battery '+extract(s,[/max(?:imum)? battery\s*(\d+(?:\.\d+)?)/i],4000)+' Wh':'')+
+  (/(?:electronics|base load)\s*\d/i.test(s)?' electronics '+extract(s,[/(?:electronics|base load)\s*(\d+(?:\.\d+)?)/i],25)+' W':'')+
+  (/(?:dust loss)\s*\d/i.test(s)?' dust loss '+extract(s,[/dust loss\s*(\d+(?:\.\d+)?)/i],0)+' %':'')+
+  (/(?:storm (?:every|interval))\s*\d/i.test(s)?' storm every '+extract(s,[/storm (?:every|interval)\s*(\d+(?:\.\d+)?)/i],0)+' days':'');
+ const base=integratedMission(source);
+ const scenarios=[];
+ for(const factor of [0.8,1,1.2]){
+   const d=(distance*factor).toFixed(5);
+   const run=integratedMission(source.replace('travel '+distance+' km','travel '+d+' km'));
+   scenarios.push({distanceKm:+d,feasible:!!run.data.best,selected:run.data.best?{areaM2:run.data.best.areaM2,batteryWh:run.data.best.batteryWh}:null,driveEnergyWh:drivingEnergyWh*factor});
+ }
+ const f=x=>Number(x.toFixed(3)).toLocaleString('en-US');
+ const steps=[
+ {name:'Mobility and terrain',status:'computed',output:{rollingForceN:rollingForce,slopeForceN:slopeForce,tractionForceN:totalForce,motorPowerW:motorPower,driveHours,drivingEnergyWh}},
+ {name:'Hourly energy and storage',status:base.data.best?'feasible-grid-design':'no-feasible-grid-design',output:{testedCandidates:base.data.candidateCount,selected:base.data.best?{areaM2:base.data.best.areaM2,batteryWh:base.data.best.batteryWh}:null}},
+ {name:'Range sensitivity ±20%',status:'computed',output:scenarios},
+ {name:'Model review',status:'requires-human-validation',output:'Check soil traction, slope changes, actual solar irradiance, battery aging, thermal loads, mission duty cycle and safety margins.'}
+ ];
+ const text='MISSION EXECUTION REPORT — V631.3.56\n'+
+  'Executed 4 connected stages (3 numerical and 1 validation checklist).\n'+
+  'INPUT: '+f(mass)+' kg rover, '+f(distance)+' km in '+days+' days, speed '+f(speed)+' m/s, slope '+f(slope)+'°, rolling coefficient '+f(rolling)+'.\n'+
+  '1. MOBILITY: total resisting force '+f(totalForce)+' N, motor electrical power '+f(motorPower)+' W, travel '+f(driveHours)+' h total ('+f(dailyDriveHours)+' h/day), driving energy '+f(drivingEnergyWh)+' Wh.\n'+
+  '2. ENERGY SYSTEM: '+base.data.candidateCount+' solar/battery candidates simulated hourly. '+(base.data.best?'Selected panel '+f(base.data.best.areaM2)+' m² and battery '+f(base.data.best.batteryWh)+' Wh.':'No feasible candidate within tested limits.')+'\n'+
+  '3. SENSITIVITY: '+scenarios.map(x=>f(x.distanceKm)+' km: '+(x.feasible?f(x.selected.areaM2)+' m² / '+f(x.selected.batteryWh)+' Wh':'no feasible candidate')).join('; ')+'.\n'+
+  '4. REVIEW: engineering evidence still needed. No autonomous physical execution or verified real-world design.\n'+
+  'ASSUMPTIONS: Mars gravity 3.71 m/s²; constant incline and speed; motor efficiency '+f(motorEfficiency*100)+'%; simplified rolling resistance; average driving energy spread across all hours; idealized constant daylight flux, battery charge/discharge efficiency 90%.\n'+
+  'Each stage is a real calculation within this limited model. Changing parameters reruns all connected stages.';
+ return {text,data:{kind:'mission-orchestration',version:'631.3.55',input:s,stages:steps,base:base.data,scenarios},chart:base.chart};
+}
+
+
+function adaptiveMission(s){
+ if(!/\b(refine mission|improve mission|adaptive mission|automatically refine|revise design|auto refine)\b/i.test(s))return null;
+ if(!/\b(rover|mars vehicle|robotic vehicle)\b/i.test(s))return null;
+ const mass=extract(s,[/(\d+(?:\.\d+)?)\s*kg/i],150);
+ const distance=extract(s,[/(?:travel|distance|range|cover)\s*(\d+(?:\.\d+)?)\s*km/i,/(\d+(?:\.\d+)?)\s*km/i],10);
+ const days=extract(s,[/(\d+(?:\.\d+)?)\s*days?/i],90);
+ const slope=extract(s,[/(?:slope|incline)\s*(\d+(?:\.\d+)?)\s*degrees?/i],0);
+ const speed=extract(s,[/(?:speed|velocity)\s*(\d+(?:\.\d+)?)\s*m\/?s/i],0.1);
+ const rolling=extract(s,[/rolling (?:coefficient|resistance)\s*(\d+(?:\.\d+)?)/i],0.15);
+ const eff=extract(s,[/motor efficiency\s*(\d+(?:\.\d+)?)\s*%/i],70)/100;
+ const electronics=extract(s,[/(?:electronics|base load)\s*(\d+(?:\.\d+)?)\s*w/i],25);
+ const sun=extract(s,[/(?:sun hours|sunlight hours)\s*(\d+(?:\.\d+)?)\s*(?:h|hours?)/i],6);
+ const maxArea=extract(s,[/max(?:imum)? (?:panel )?area\s*(\d+(?:\.\d+)?)\s*m2/i],12);
+ const maxBattery=extract(s,[/max(?:imum)? battery\s*(\d+(?:\.\d+)?)\s*wh/i],4000);
+ const dust=extract(s,[/dust loss\s*(\d+(?:\.\d+)?)\s*%/i],0);
+ const storm=extract(s,[/storm (?:every|interval)\s*(\d+(?:\.\d+)?)\s*days?/i],0);
+ const inputs=[mass,distance,days,slope,speed,rolling,eff,electronics,sun,maxArea,maxBattery,dust,storm];
+ if(inputs.some(x=>!Number.isFinite(x))||mass<=0||distance<=0||days<=0||days>365||slope<0||slope>60||speed<=0||speed>100||rolling<0||rolling>2||eff<=0||eff>1||electronics<0||sun<=0||sun>15||maxArea<0.5||maxArea>100||maxBattery<250||maxBattery>1e7||dust<0||dust>=100||storm<0)
+ throw Error('Invalid adaptive mission constraints. Check mass, days, speed, solar limits and efficiency.');
+ const gravity=3.71,theta=slope*Math.PI/180;
+ const force=mass*gravity*(rolling*Math.cos(theta)+Math.sin(theta));
+ const driveWh=force*distance*1000/(eff*3600);
+ const travelHours=distance*1000/speed/3600;
+ const timeFeasible=travelHours<=days*24;
+ const equivalentRolling=force/(mass*gravity)*(.7/eff);
+ const common='simulate and optimize '+mass+' kg Mars rover travel '+distance+' km for '+days+
+  ' days rolling resistance '+equivalentRolling.toFixed(9)+' sun hours '+sun+' electronics '+electronics+
+  ' W dust loss '+dust+' %'+(storm?' storm every '+storm+' days':'');
+ const iterations=[];
+ let winner=null;
+ // Fixed engineering constraints. Increase panel and storage allowance in stages; never silently exceed user caps.
+ const limits=[{a:Math.min(2,maxArea),b:Math.min(1000,maxBattery)},
+ {a:Math.min(4,maxArea),b:Math.min(2000,maxBattery)},
+ {a:Math.min(8,maxArea),b:Math.min(3000,maxBattery)},
+ {a:maxArea,b:maxBattery}];
+ const unique=new Set();
+ for(let i=0;i<limits.length;i++){
+  const {a,b}=limits[i],key=a+':'+b;
+  if(unique.has(key))continue;unique.add(key);
+  const trial=integratedMission(common+' max panel area '+a+' m2 max battery '+b+' Wh');
+  const candidate=trial.data.best;
+  const record={iteration:iterations.length+1,areaLimitM2:a,batteryLimitWh:b,feasible:!!candidate&&timeFeasible,
+   candidate:candidate?{areaM2:candidate.areaM2,batteryWh:candidate.batteryWh,shortageWh:candidate.shortageWh}:null,
+   reason:!timeFeasible?'Travel time exceeds mission duration':candidate?'Energy constraints satisfied in simplified simulation':'Insufficient energy/storage in this search window'};
+  iterations.push(record);
+  if(record.feasible){winner={...record,details:trial.data.best};break;}
+ }
+ const report='ADAPTIVE MISSION REFINEMENT — V631.3.56\n'+
+  'Objective: '+mass+' kg Mars rover, '+distance+' km over '+days+' days.\n'+
+  'Executed '+iterations.length+' automated design-search rounds using the existing hourly energy simulator.\n'+
+  'Mobility: estimated force '+force.toFixed(2)+' N; total driving energy '+driveWh.toFixed(2)+' Wh; required driving time '+travelHours.toFixed(2)+' h.\n'+
+  iterations.map(t=>'Round '+t.iteration+': panel cap '+t.areaLimitM2+' m², battery cap '+t.batteryLimitWh+' Wh — '+(t.feasible?'PASS':'FAIL')+
+    (t.candidate?' (candidate '+t.candidate.areaM2+' m² / '+t.candidate.batteryWh+' Wh)':'')+'; '+t.reason).join('\n')+'\n'+
+  (winner?'SELECTED DESIGN: '+winner.candidate.areaM2+' m² solar panel, '+winner.candidate.batteryWh+' Wh nominal battery. Meets modeled constraints.\n':
+  'NO FEASIBLE DESIGN FOUND under the supplied constraints. No automatic relaxation of mission requirements was performed.\n')+
+  'VERIFICATION: checked time feasibility and hourly energy shortages; mathematical estimates only. Physical terrain, thermal performance, battery degradation, sunlight variability, mass/cost optimization and hardware tests remain unverified.\n'+
+  'This is a bounded offline automated refinement workflow, NOT a general AI model or autonomous engineering certification.';
+ const chart=lineChart(iterations.map(t=>({x:t.iteration,y:t.candidate?t.candidate.areaM2:0})),'Selected panel area per refinement round (0 = no candidate)');
+ return {text:report,chart,data:{kind:'adaptive-rover-refinement',inputs:{mass,distance,days,slope,speed,rolling,eff,electronics,sun,maxArea,maxBattery,dust,storm},force,driveWh,travelHours,timeFeasible,iterations,selected:winner?winner.candidate:null,limitations:'Simplified fixed models; no AI backend'}};
+}
+
+function answer(input){let s=input.trim();if(!s)throw Error('Enter a mission, equation, or request.');let m=selected(),lower=s.toLowerCase();if(/^(?:next|next step|what next|status|progress|questions)\??$/.test(lower)){if(!m)return 'Create a mission first.';if(lower.includes('status')||lower.includes('progress'))return m.tasks.filter(t=>t.done).length+' of '+m.tasks.length+' steps complete.\n'+m.description;let t=m.tasks.find(t=>!t.done);return t?'Next step: '+t.title+'\nRecord your findings, then check the task off below.':'All planned steps marked complete. Review evidence before declaring success.'}
+if(/^(?:calculate|solve|what is|evaluate)\s+/i.test(s)||/^[\d\s()+*/.^\-πe]+$/i.test(s)){let expression=s.replace(/^(?:calculate|solve|what is|evaluate)\s+/i,'').replace(/[?=]\s*$/,'');return expression+' = '+math(expression)}
+let adaptive=adaptiveMission(s);if(adaptive){document.getElementById("visual").innerHTML=adaptive.chart||"";lastReport=JSON.stringify({description:s,model:"adaptive-mission-v631.3.56",results:adaptive.data,notes:adaptive.text},null,2);return adaptive.text;}
+let executed=executeMission(s);if(executed){document.getElementById("visual").innerHTML=executed.chart||"";lastReport=JSON.stringify({description:s,model:"mission-orchestration-v631.3.55",results:executed.data,notes:executed.text},null,2);return executed.text;}
+let integrated=integratedMission(s);if(integrated){document.getElementById("visual").innerHTML=integrated.chart||"";lastReport=JSON.stringify({description:s,model:"integrated-v631.3.54",results:integrated.data,notes:integrated.text},null,2);return integrated.text;}
+let optimized=optimizationMission(s);if(optimized){document.getElementById('visual').innerHTML=optimized.chart||'';lastReport=JSON.stringify({description:s,model:'optimization-v631.3.53',results:optimized.data,notes:optimized.text},null,2);return optimized.text;}
+let simulation=scientificMission(s);if(simulation){document.getElementById('visual').innerHTML=simulation.chart||'';lastReport=JSON.stringify({description:s,model:'scientific-v631.3.52',results:simulation.data,notes:simulation.text},null,2);return simulation.text;}
+let r=rover(s);if(r){document.getElementById('visual').innerHTML=r.chart;lastReport=JSON.stringify({description:s,model:'rover-first-order',results:r.data,notes:r.text},null,2);return r.text;}
+let p=physics(s);if(p)return p;
+if(/^(?:complete|finish)\s+(?:step\s+)?\d+$/i.test(s)){if(!m)return 'Create a mission first.';let id=Number(s.match(/\d+/)[0]),t=m.tasks.find(t=>t.id===id);if(!t)throw Error('Step not found');t.done=true;save();render();return 'Marked step '+id+' complete. Verify your supporting evidence separately.'}
+if(/^(?:research|look up|search)\b/i.test(s))return 'Research request recorded. This offline version cannot search the internet or verify sources. Add evidence manually to your project notes or use an online research service.';
+if(/^(?:write code|create code|generate software)\b/i.test(s))return 'Software development request recognized. A software project can be planned here; full arbitrary code generation requires a connected AI model. Use the preserved Software Engineering workspace for supported starter projects.';
+let created=newMission(s);render();return 'Created '+created.kind+' mission with '+created.tasks.length+' guided steps.\nFirst step: '+created.tasks[0].title+'\nAsk “next step” or “status”, or check off steps below. For calculations enter an expression such as (12+3)*4, or a mass/force/time physics problem.'}
+function render(){let list=document.getElementById('missions');list.innerHTML=state.missions.map(m=>'<option value="'+escape(m.id)+'" '+(m.id===state.selected?'selected':'')+'>'+escape(m.description.slice(0,65))+'</option>').join('');document.getElementById('tasks').innerHTML=taskView();document.getElementById('history').innerHTML=state.history.slice(-12).reverse().map(x=>'<article><small>'+escape(x.at)+'</small><div><b>You:</b> '+escape(x.input)+'</div><pre>'+escape(x.output)+'</pre></article>').join('')}
+function run(){let field=document.getElementById('prompt'),s=field.value;try{document.getElementById('visual').innerHTML='';lastReport='';let output=answer(s);if(!lastReport)lastReport=JSON.stringify({input:s,output,created:new Date().toISOString()},null,2);state.history.push({at:new Date().toLocaleString(),input:s,output});if(state.history.length>200)state.history.shift();document.getElementById('result').textContent=output;field.value='';save();render()}catch(e){document.getElementById('result').textContent='Could not process request: '+e.message+'\nTry a simpler expression or a specific supported task.'}}
+function start(){load();render();document.getElementById('run').onclick=run;document.getElementById('report').onclick=()=>{if(!lastReport){document.getElementById('result').textContent='Run a calculation or mission first.';return;}let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lastReport],{type:'application/json'}));a.download='CAS_Mission_Results.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000)};document.getElementById('selftest').onclick=()=>{let checks=[];try{checks.push('Math: '+(math('(12+3)*4')===60?'PASS':'FAIL'));let r=rover('Design a 150 kg Mars rover travel 10 km for 90 days');checks.push('Rover model: '+(r&&r.data.energy>0&&r.data.variants.length===4?'PASS':'FAIL'))}catch(e){checks.push('Math: FAIL '+e.message)}try{let k='cas.health.test';localStorage.setItem(k,'ok');checks.push('Local storage: '+(localStorage.getItem(k)==='ok'?'PASS':'FAIL'));localStorage.removeItem(k)}catch(e){checks.push('Local storage: UNAVAILABLE')}checks.push('Secure site: '+(location.protocol==='https:'?'YES':'NO'));checks.push('Single-file mode: ACTIVE');document.getElementById('health').textContent=checks.join(' | ');document.getElementById('result').textContent=checks.join('\n')+'\nNote: tests do not prove all older engines work.'};document.getElementById('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();run()}});document.getElementById('missions').onchange=e=>{state.selected=e.target.value;save();render()};document.getElementById('tasks').onchange=e=>{let m=selected(),t=m&&m.tasks.find(t=>t.id===Number(e.target.dataset.task));if(t){t.done=e.target.checked;save();render()}};document.getElementById('export').onclick=()=>{let a=document.createElement('a'),blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});a.href=URL.createObjectURL(blob);a.download='CAS_OneBox_Backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};document.getElementById('import').onchange=async e=>{try{let v=JSON.parse(await e.target.files[0].text());if(!v||!Array.isArray(v.missions)||!Array.isArray(v.history))throw Error('Invalid backup');state=v;save();render();document.getElementById('result').textContent='Backup restored.'}catch(err){document.getElementById('result').textContent='Import failed: '+err.message}};document.getElementById('clear').onclick=()=>{if(confirm('Delete local mission history and projects? Export a backup first.')){state={missions:[],selected:null,history:[]};save();render()}};}
+if(typeof module==='object'&&module.exports)module.exports={math,pick,physics,rover,optimizationMission,integratedMission,executeMission,adaptiveMission,scientificMission,newMission,answer};if(typeof document!=='undefined')document.addEventListener('DOMContentLoaded',start);
+})(typeof window!=='undefined'?window:globalThis);
+</script></body></html>
