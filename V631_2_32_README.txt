@@ -1,0 +1,1 @@
+V631.2.32: Newtonian two-body orbital analysis. Open CAS_IPAD_OPEN_ME.html for standalone UI. Central mass in kg, position in meters, velocity in meters per second. Uses osculating orbital elements relative to a fixed central mass; not a relativistic or perturbation-aware predictor. Previous files preserved. Not a native iPad app.

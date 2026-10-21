@@ -1,0 +1,1 @@
+V631.2.44 simulated self-recovery: event log, battery/thermal dynamics, payload shedding, safe mode, hysteretic recovery, telemetry buffering. Educational simulation only; no hardware control. Open IPAD_OFFLINE/index.html in a compatible browser. Offline service worker caching requires a supported secure origin; file:// access may differ.

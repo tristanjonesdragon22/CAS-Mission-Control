@@ -1,0 +1,1 @@
+V631.2.34: Interactive offline solar-system schematic, time controls, Hohmann transfer arc. Uses simplified circular coplanar Newtonian orbits, not real planetary ephemerides. Open index.html in a modern browser. For reliable offline caching, serve over HTTPS or localhost; file:// does not register service workers. Previous components retained.

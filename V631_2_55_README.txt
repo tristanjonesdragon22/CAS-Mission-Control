@@ -1,0 +1,1 @@
+V631.2.55: Polynomial hypothesis proposals, held-out numerical testing, error rankings, and follow-up experiment suggestions. Educational numerical evidence, not formal proof. Browser-based; no native iPad application.

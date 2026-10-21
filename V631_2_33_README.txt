@@ -1,0 +1,1 @@
+V631.2.33: planetary body presets, idealized Hohmann transfers, satellite circular orbit estimates and transfer formula cross-check. Open IPAD_OFFLINE/index.html via a browser/server. Not a native iPad app. Existing files preserved.

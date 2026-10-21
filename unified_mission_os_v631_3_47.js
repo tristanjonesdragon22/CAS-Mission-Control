@@ -1,0 +1,19 @@
+(function(root){'use strict';
+const C=root.CASConversationalMission344||(typeof require==='function'?require('./conversational_mission_v631_3_44.js'):null);
+const A=root.CASAdaptiveMission345||(typeof require==='function'?require('./adaptive_mission_v631_3_45.js'):null);
+const S=root.CASSoftwareEngineering346||(typeof require==='function'?require('./software_engineering_v631_3_46.js'):null);
+const B=root.CASMissionDirector338||(typeof require==='function'?require('./mission_director_v631_3_38.js'):null);
+const VERSION='631.3.47',SCHEMA='cas.unified.mission.os.v1';
+function check(v,m){if(!v)throw Error(m)}function copy(v){return JSON.parse(JSON.stringify(v))}function stamp(){return new Date().toISOString()}
+function create(){return {schema:SCHEMA,version:VERSION,missions:[],software:[],links:[],activity:[],selected:null,created:stamp(),updated:stamp()}}
+function validate(s){check(s&&s.schema===SCHEMA&&Array.isArray(s.missions)&&Array.isArray(s.software)&&Array.isArray(s.links)&&Array.isArray(s.activity),'Invalid unified workspace');check(s.missions.length<=50&&s.software.length<=50&&s.links.length<=300&&s.activity.length<=1000,'Workspace limit exceeded');let ids=new Set();for(let m of s.missions){A.state(m);check(!ids.has(m.id),'Duplicate mission ID');ids.add(m.id)}let names=new Set();for(let w of s.software){S.validate(w);check(!names.has(w.name),'Duplicate software name');names.add(w.name)}for(let l of s.links)check(ids.has(l.missionId)&&names.has(l.softwareName),'Invalid project link');return s}
+function event(s,type,detail){s.activity.push({at:stamp(),type,detail:String(detail).slice(0,300)});if(s.activity.length>1000)s.activity.shift();s.updated=stamp()}
+function addMission(s,description){validate(s);check(s.missions.length<50,'Mission limit reached');let p=C.init(description);if(s.missions.some(m=>m.id===p.id))p.id+='_'+s.missions.length;s.missions.push(p);s.selected=p.id;event(s,'mission-created',p.id);return p.id}
+function addSoftware(s,name,description,kind){validate(s);check(s.software.length<50&&!s.software.some(w=>w.name===name),'Software limit or duplicate name');let w=S.generate(name,description,kind);s.software.push(w);event(s,'software-created',name);return name}
+function mission(s,id){validate(s);let p=s.missions.find(m=>m.id===id);check(p,'Mission not found');return p}
+function chat(s,id,message){let p=mission(s,id),r=A.chat(p,message);let i=s.missions.indexOf(p);s.missions[i]=r.project;event(s,'mission-chat',r.kind);return r}
+function link(s,id,name){mission(s,id);check(s.software.some(w=>w.name===name),'Software project not found');if(!s.links.some(l=>l.missionId===id&&l.softwareName===name))s.links.push({missionId:id,softwareName:name,at:stamp()});event(s,'project-linked',name);return s.links}
+function dashboard(s){validate(s);let ms=s.missions.map(m=>{let status=C.status(m);let issues=A.diagnose(m);return {id:m.id,title:m.title,kind:m.kind,progress:status,issues:issues.issues||[],linkedSoftware:s.links.filter(l=>l.missionId===m.id).map(l=>l.softwareName),researchEntries:(m.knowledge&&m.knowledge.entries||[]).length,engineeringRuns:(m.engineering&&m.engineering.runs||[]).length}});return {version:VERSION,missionCount:ms.length,softwareCount:s.software.length,linkCount:s.links.length,missions:ms,software:s.software.map(w=>({name:w.name,kind:w.kind,files:Object.keys(w.files||{}).length})),recent:s.activity.slice(-12)}}
+function exportJSON(s){validate(s);return JSON.stringify(s,null,2)}function importJSON(txt){check(typeof txt==='string'&&txt.length<=8000000,'Import too large');let s=JSON.parse(txt);return validate(s)}
+const api={VERSION,SCHEMA,create,validate,addMission,addSoftware,mission,chat,link,dashboard,exportJSON,importJSON};if(typeof module==='object'&&module.exports)module.exports=api;root.CASUnifiedMissionOS347=api;
+})(typeof globalThis!=='undefined'?globalThis:this);

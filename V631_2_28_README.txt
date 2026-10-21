@@ -1,0 +1,1 @@
+V631.2.28: Added standalone offline 3D parametric curve grapher with sampled arc-length and coordinate bounds. Open IPAD_OFFLINE/index.html through a browser/HTTPS host. t is the parameter (internally mapped to graph parser x). This is not a native iPad app. Previous files retained.

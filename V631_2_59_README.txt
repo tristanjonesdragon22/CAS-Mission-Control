@@ -1,0 +1,1 @@
+V631.2.59: Sequential research workflow queue for up to 12 user-supplied expressions. Uses V631.2.58 planner, supports stop and JSON export. Runs in browser, no background scheduling or formal proofs.

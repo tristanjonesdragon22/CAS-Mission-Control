@@ -1,0 +1,12 @@
+/* CAS V631.2.22 vector calculus, polynomial fields in x,y,z. */
+(function(root){'use strict';
+const core=root.casMultivariableCalculusV631221;
+if(!core)throw Error('V631.2.21 multivariable engine required');
+function components(value){if(Array.isArray(value)){if(value.length!==3)throw Error('Expected three vector components');return value.map(String)}let s=String(value).trim();if(s.startsWith('[')){let a=JSON.parse(s);return components(a)}let parts=s.split(';').map(x=>x.trim());if(parts.length!==3||parts.some(x=>!x))throw Error('Enter three components separated by semicolons: x*y; y*z; z*x');return parts}
+function derivative(s,v){return core.derivative(s,v)}
+function div(field){let [a,b,c]=components(field);return [derivative(a,'x'),derivative(b,'y'),derivative(c,'z')].join(' + ')}
+function curl(field){let [a,b,c]=components(field);return [derivative(c,'y')+' - ('+derivative(b,'z')+')',derivative(a,'z')+' - ('+derivative(c,'x')+')',derivative(b,'x')+' - ('+derivative(a,'y')+')']}
+function directional(s, direction,point){let d=Array.isArray(direction)?direction:String(direction).split(',').map(Number);if(d.length!==3||d.some(v=>!Number.isFinite(Number(v))))throw Error('Direction needs three finite numbers');let norm=Math.hypot(...d);if(norm===0)throw Error('Direction must be nonzero');let pt=point||{x:1,y:2,z:3};let grads='xyz'.split('').map(v=>core.evaluate(derivative(s,v),pt));return grads.reduce((sum,v,i)=>sum+v*Number(d[i])/norm,0)}
+function doubleIntegral(s,variable1,low1,high1,variable2,low2,high2){if(!'xyz'.includes(variable1)||!'xyz'.includes(variable2)||variable1===variable2)throw Error('Choose two distinct variables');let bounds=[low1,high1,low2,high2].map(Number);if(bounds.some(x=>!Number.isFinite(x)))throw Error('Bounds must be finite');let terms=core.parse(s),i='xyz'.indexOf(variable1),j='xyz'.indexOf(variable2),result=0;for(let [key,coef] of Object.entries(terms)){let powers=key.split(',').map(Number);if(powers.some((v,k)=>k!==i&&k!==j&&v!==0))throw Error('Expression depends on an unintegrated variable');let p=powers[i]+1,q=powers[j]+1;result+=coef*(Math.pow(bounds[1],p)-Math.pow(bounds[0],p))/p*(Math.pow(bounds[3],q)-Math.pow(bounds[2],q))/q}return result}
+const api={components,divergence:div,curl,directionalDerivative:directional,doubleIntegral};root.casVectorCalculusV631222=api;if(typeof module!=='undefined')module.exports=api;
+})(typeof globalThis!=='undefined'?globalThis:this);

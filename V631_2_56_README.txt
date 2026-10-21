@@ -1,0 +1,1 @@
+V631.2.56: numerical hypothesis refinement with interleaved validation, model comparison, and follow-up sample suggestions. Offline browser JavaScript. Not formal mathematical proof. Previous files retained.

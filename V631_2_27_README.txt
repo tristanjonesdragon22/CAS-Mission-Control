@@ -1,0 +1,1 @@
+CAS V631.2.27: offline interactive 3D graphing. Open CAS_IPAD_OPEN_ME.html from an HTML-capable browser, or host IPAD_OFFLINE on HTTPS for iPad Home Screen support. Added up to four custom surfaces, safe expression parser, touch rotation and pinch zoom. Existing files retained. This is not a native iPad app.

@@ -1,0 +1,1 @@
+V631.2.58 Research Planning: reproducible experiment rounds, polynomial hypothesis comparisons, interval recommendations, local summary history and JSON export. Educational numerical analysis only. No native iPad app, full regression or physical iPad verification. Open IPAD_OFFLINE/index.html in a supported browser. Existing files retained.
