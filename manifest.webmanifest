@@ -1,13 +1,13 @@
 {
-  "id": "./",
-  "name": "CAS V631.3.47 Unified Mission Control",
+  "name": "CAS Mission Control V631.4.11",
   "short_name": "CAS Mission",
-  "description": "Offline mathematical mission control, engineering and project workspace",
-  "start_url": "./UNIFIED_MISSION_OS_V631_3_47.html",
+  "description": "Offline mathematical engineering and mission design workspace",
+  "id": "./",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0b1526",
-  "theme_color": "#132640",
+  "background_color": "#0b1425",
+  "theme_color": "#101d32",
   "icons": [
     {
       "src": "./icon-192.png",
